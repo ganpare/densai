@@ -36,13 +36,21 @@ export default function Login() {
     setError("");
     
     try {
-      await apiRequest("POST", "/api/auth/login", data);
-      toast({
-        title: "ログイン成功",
-        description: "システムにログインしました",
-      });
-      // ページをリロードして認証状態を更新
-      window.location.href = "/";
+      const response = await apiRequest("POST", "/api/auth/login", data);
+      const result = await response.json();
+      
+      if (result.success) {
+        toast({
+          title: "ログイン成功",
+          description: "システムにログインしました",
+        });
+        // 少し待ってからリダイレクト
+        setTimeout(() => {
+          window.location.href = "/";
+        }, 500);
+      } else {
+        setError("ユーザーIDまたはパスワードが正しくありません");
+      }
     } catch (err: any) {
       setError("ユーザーIDまたはパスワードが正しくありません");
     } finally {

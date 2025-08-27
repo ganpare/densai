@@ -8,12 +8,12 @@ export function getSession() {
   
   return session({
     secret: "development-secret-key-for-offline-use",
-    resave: true,
-    saveUninitialized: true,
+    resave: false,
+    saveUninitialized: false,
     cookie: {
-      httpOnly: true,
-      secure: false, // Set to false for local development
-      sameSite: 'lax', // Important for modern browsers
+      httpOnly: false, // デバッグのため一時的にfalseに
+      secure: false,
+      sameSite: 'lax',
       maxAge: sessionTtl,
     },
   });
@@ -35,21 +35,7 @@ export async function setupAuth(app: Express) {
       if (user && user.password === password) {
         // セッションに保存
         (req.session as any).userId = user.id;
-        console.log('Login success - setting session:', {
-          sessionId: req.sessionID,
-          userId: user.id,
-          sessionBefore: req.session
-        });
-        
-        // セッション保存を強制
-        req.session.save((err) => {
-          if (err) {
-            console.error("Session save error:", err);
-            return res.status(500).json({ message: "セッション保存エラー" });
-          }
-          console.log('Session saved successfully:', req.sessionID);
-          res.json({ success: true, user: { ...user, password: undefined } });
-        });
+        res.json({ success: true, user: { ...user, password: undefined } });
       } else {
         res.status(401).json({ message: "ユーザーIDまたはパスワードが正しくありません" });
       }
@@ -73,21 +59,13 @@ export async function setupAuth(app: Express) {
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
   const userId = (req.session as any).userId;
   
-  console.log('Session check:', {
-    sessionId: req.sessionID,
-    userId,
-    session: req.session
-  });
-  
   if (!userId) {
-    console.log('No userId in session');
     return res.status(401).json({ message: "Unauthorized" });
   }
   
   // Refresh user data from storage
   const user = await storage.getUser(userId);
   if (!user) {
-    console.log('User not found:', userId);
     return res.status(401).json({ message: "Unauthorized" });
   }
   
