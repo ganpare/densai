@@ -8,8 +8,8 @@ export function getSession() {
   
   return session({
     secret: "development-secret-key-for-offline-use",
-    resave: false,
-    saveUninitialized: false,
+    resave: true,
+    saveUninitialized: true,
     cookie: {
       httpOnly: true,
       secure: false, // Set to false for local development
@@ -32,8 +32,16 @@ export async function setupAuth(app: Express) {
     try {
       const user = await storage.getUserByUsername(username);
       if (user && user.password === password) {
-        (req.session as any).user = user;
-        res.json({ success: true, user: { ...user, password: undefined } });
+        // セッションに保存
+        (req.session as any).userId = user.id;
+        // セッション保存を強制
+        req.session.save((err) => {
+          if (err) {
+            console.error("Session save error:", err);
+            return res.status(500).json({ message: "セッション保存エラー" });
+          }
+          res.json({ success: true, user: { ...user, password: undefined } });
+        });
       } else {
         res.status(401).json({ message: "ユーザーIDまたはパスワードが正しくありません" });
       }
@@ -55,14 +63,14 @@ export async function setupAuth(app: Express) {
 }
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
-  const sessionUser = (req.session as any).user;
+  const userId = (req.session as any).userId;
   
-  if (!sessionUser) {
+  if (!userId) {
     return res.status(401).json({ message: "Unauthorized" });
   }
   
   // Refresh user data from storage
-  const user = await storage.getUser(sessionUser.id);
+  const user = await storage.getUser(userId);
   if (!user) {
     return res.status(401).json({ message: "Unauthorized" });
   }
