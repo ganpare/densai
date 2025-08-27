@@ -22,6 +22,8 @@ sqlite.exec(`
   
   CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+    username TEXT NOT NULL UNIQUE,
+    password TEXT NOT NULL,
     email TEXT UNIQUE,
     first_name TEXT,
     last_name TEXT,
@@ -77,13 +79,14 @@ const userCount = sqlite.prepare('SELECT COUNT(*) as count FROM users').get() as
 if (userCount.count === 0) {
   const currentTimestamp = Math.floor(Date.now() / 1000);
   
+  // パスワードは簡単な例として平文で保存（本番では必ずハッシュ化）
   sqlite.prepare(`
-    INSERT INTO users (id, email, first_name, last_name, role, approval_level, created_at, updated_at) VALUES 
-    ('creator1', 'creator@example.com', '太郎', '田中', 'creator', 1, ${currentTimestamp}, ${currentTimestamp}),
-    ('creator2', 'creator2@example.com', '花子', '佐藤', 'creator', 1, ${currentTimestamp}, ${currentTimestamp}),
-    ('approver1', 'approver@example.com', '次郎', '鈴木', 'approver', 2, ${currentTimestamp}, ${currentTimestamp}),
-    ('approver2', 'approver2@example.com', '美咲', '高橋', 'approver', 3, ${currentTimestamp}, ${currentTimestamp}),
-    ('admin1', 'admin@example.com', '健太', '田村', 'admin', 5, ${currentTimestamp}, ${currentTimestamp})
+    INSERT INTO users (id, username, password, email, first_name, last_name, role, approval_level, created_at, updated_at) VALUES 
+    ('creator1', 'tanaka', 'password123', 'creator@example.com', '太郎', '田中', 'creator', 1, ${currentTimestamp}, ${currentTimestamp}),
+    ('creator2', 'sato', 'password123', 'creator2@example.com', '花子', '佐藤', 'creator', 1, ${currentTimestamp}, ${currentTimestamp}),
+    ('approver1', 'suzuki', 'password123', 'approver@example.com', '次郎', '鈴木', 'approver', 2, ${currentTimestamp}, ${currentTimestamp}),
+    ('approver2', 'takahashi', 'password123', 'approver2@example.com', '美咲', '高橋', 'approver', 3, ${currentTimestamp}, ${currentTimestamp}),
+    ('admin1', 'tamura', 'password123', 'admin@example.com', '健太', '田村', 'admin', 5, ${currentTimestamp}, ${currentTimestamp})
   `).run();
   
   // Insert sample financial institutions

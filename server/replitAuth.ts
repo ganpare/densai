@@ -1,4 +1,4 @@
-// Simplified authentication system for offline local network use
+// Simple username/password authentication system
 import session from "express-session";
 import type { Express, RequestHandler } from "express";
 import { storage } from "./storage";
@@ -21,35 +21,36 @@ export function getSession() {
 export async function setupAuth(app: Express) {
   app.use(getSession());
 
-  // Simple login endpoint for offline use - auto-login as creator
-  app.get("/api/login", async (req, res) => {
-    // For offline demo, automatically log in as the creator user
-    const user = await storage.getUser("creator1");
-    if (user) {
-      (req.session as any).user = user;
-      res.redirect("/");
-    } else {
-      res.status(500).json({ message: "Demo user not found" });
+  // Login endpoint with username/password
+  app.post("/api/auth/login", async (req, res) => {
+    const { username, password } = req.body;
+    
+    if (!username || !password) {
+      return res.status(400).json({ message: "ユーザーIDとパスワードが必要です" });
+    }
+
+    try {
+      const user = await storage.getUserByUsername(username);
+      if (user && user.password === password) {
+        (req.session as any).user = user;
+        res.json({ success: true, user: { ...user, password: undefined } });
+      } else {
+        res.status(401).json({ message: "ユーザーIDまたはパスワードが正しくありません" });
+      }
+    } catch (error) {
+      console.error("Login error:", error);
+      res.status(500).json({ message: "ログインエラーが発生しました" });
     }
   });
 
   // Logout endpoint
-  app.get("/api/logout", (req, res) => {
+  app.post("/api/auth/logout", (req, res) => {
     req.session.destroy((err) => {
-      res.redirect("/");
+      if (err) {
+        console.error("Logout error:", err);
+      }
+      res.json({ success: true });
     });
-  });
-
-  // Switch user endpoint for testing (offline only)
-  app.post("/api/switch-user", async (req, res) => {
-    const { userId } = req.body;
-    const user = await storage.getUser(userId);
-    if (user) {
-      (req.session as any).user = user;
-      res.json({ success: true, user });
-    } else {
-      res.status(404).json({ message: "User not found" });
-    }
   });
 }
 

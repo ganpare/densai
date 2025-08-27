@@ -28,8 +28,17 @@ export default function Sidebar() {
     retry: false,
   });
 
-  const handleLogout = () => {
-    window.location.href = "/api/logout";
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "include",
+      });
+      window.location.href = "/";
+    } catch (error) {
+      console.error("Logout failed:", error);
+      window.location.href = "/";
+    }
   };
 
   const navigation = [
