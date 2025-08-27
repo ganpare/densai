@@ -75,11 +75,15 @@ sqlite.exec(`
 // Insert default users if none exist
 const userCount = sqlite.prepare('SELECT COUNT(*) as count FROM users').get() as { count: number };
 if (userCount.count === 0) {
+  const currentTimestamp = Math.floor(Date.now() / 1000);
+  
   sqlite.prepare(`
-    INSERT INTO users (id, email, first_name, last_name, role, approval_level) VALUES 
-    ('creator1', 'creator@example.com', '作成者', '太郎', 'creator', 1),
-    ('approver1', 'approver@example.com', '承認者', '花子', 'approver', 2),
-    ('admin1', 'admin@example.com', '管理者', '次郎', 'admin', 3)
+    INSERT INTO users (id, email, first_name, last_name, role, approval_level, created_at, updated_at) VALUES 
+    ('creator1', 'creator@example.com', '太郎', '田中', 'creator', 1, ${currentTimestamp}, ${currentTimestamp}),
+    ('creator2', 'creator2@example.com', '花子', '佐藤', 'creator', 1, ${currentTimestamp}, ${currentTimestamp}),
+    ('approver1', 'approver@example.com', '次郎', '鈴木', 'approver', 2, ${currentTimestamp}, ${currentTimestamp}),
+    ('approver2', 'approver2@example.com', '美咲', '高橋', 'approver', 3, ${currentTimestamp}, ${currentTimestamp}),
+    ('admin1', 'admin@example.com', '健太', '田村', 'admin', 5, ${currentTimestamp}, ${currentTimestamp})
   `).run();
   
   // Insert sample financial institutions

@@ -12,6 +12,7 @@ import {
   CheckCircle, 
   History, 
   Settings, 
+  Users,
   LogOut, 
   Menu, 
   X 
@@ -57,6 +58,13 @@ export default function Sidebar() {
       href: "/history", 
       icon: History,
       current: location === "/history",
+    },
+    {
+      name: "ユーザー管理",
+      href: "/users",
+      icon: Users,
+      current: location === "/users",
+      show: (user as any)?.role === "admin",
     },
     {
       name: "設定",

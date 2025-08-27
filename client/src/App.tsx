@@ -10,6 +10,7 @@ import Home from "@/pages/home";
 import ReportForm from "@/pages/report-form";
 import Approval from "@/pages/approval";
 import History from "@/pages/history";
+import UserManagement from "@/pages/user-management";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -33,6 +34,7 @@ function Router() {
           <Route path="/reports/:id/edit" component={ReportForm} />
           <Route path="/approval" component={Approval} />
           <Route path="/history" component={History} />
+          <Route path="/users" component={UserManagement} />
         </>
       )}
       <Route component={NotFound} />

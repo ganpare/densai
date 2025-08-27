@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { File, CheckCircle, Clock, Shield } from "lucide-react";
+import UserSwitcher from "@/components/user-switcher";
 
 export default function Landing() {
   const handleLogin = () => {
@@ -55,8 +56,8 @@ export default function Landing() {
           </Card>
         </div>
 
-        <div className="text-center">
-          <Card className="max-w-md mx-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-4xl mx-auto">
+          <Card>
             <CardHeader>
               <CardTitle>システムにログイン</CardTitle>
               <CardDescription>
@@ -73,6 +74,8 @@ export default function Landing() {
               </Button>
             </CardContent>
           </Card>
+          
+          <UserSwitcher />
         </div>
 
         <div className="mt-16 text-center text-sm text-muted-foreground">
