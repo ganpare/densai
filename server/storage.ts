@@ -15,6 +15,7 @@ import {
   type UpdateReportStatus,
 } from "@shared/schema";
 import { db } from "./db";
+import { randomUUID } from "crypto";
 import { eq, desc, and, or, like, sql, count } from "drizzle-orm";
 
 export interface IStorage {
@@ -60,18 +61,30 @@ export class DatabaseStorage implements IStorage {
   }
 
   async upsertUser(userData: UpsertUser): Promise<User> {
-    const [user] = await db
-      .insert(users)
-      .values(userData)
-      .onConflictDoUpdate({
-        target: users.id,
-        set: {
+    const existingUser = await this.getUser(userData.id!);
+    
+    if (existingUser) {
+      const [user] = await db
+        .update(users)
+        .set({
           ...userData,
-          updatedAt: new Date(),
-        },
-      })
-      .returning();
-    return user;
+          updatedAt: Math.floor(Date.now() / 1000),
+        })
+        .where(eq(users.id, userData.id!))
+        .returning();
+      return user;
+    } else {
+      const currentTimestamp = Math.floor(Date.now() / 1000);
+      const [user] = await db
+        .insert(users)
+        .values({
+          ...userData,
+          createdAt: currentTimestamp,
+          updatedAt: currentTimestamp,
+        })
+        .returning();
+      return user;
+    }
   }
 
   // Financial institution operations
@@ -116,23 +129,35 @@ export class DatabaseStorage implements IStorage {
     const month = String(now.getMonth() + 1).padStart(2, '0');
     
     // Get count of reports this month to generate sequential number
+    const monthStart = new Date(year, now.getMonth(), 1);
+    const monthEnd = new Date(year, now.getMonth() + 1, 0);
+    const monthStartTimestamp = Math.floor(monthStart.getTime() / 1000);
+    const monthEndTimestamp = Math.floor(monthEnd.getTime() / 1000);
+    
     const [{ value: monthlyCount }] = await db
       .select({ value: count() })
       .from(reports)
       .where(
         and(
-          sql`EXTRACT(YEAR FROM created_at) = ${year}`,
-          sql`EXTRACT(MONTH FROM created_at) = ${parseInt(month)}`
+          sql`${reports.createdAt} >= ${monthStartTimestamp}`,
+          sql`${reports.createdAt} <= ${monthEndTimestamp}`
         )
       );
 
     const reportNumber = `RPT-${year}-${month}-${String((monthlyCount || 0) + 1).padStart(3, '0')}`;
+    
+    // Generate ID manually for SQLite
+    const reportId = randomUUID();
+    const currentTimestamp = Math.floor(Date.now() / 1000);
 
     const [created] = await db
       .insert(reports)
       .values({
         ...report,
+        id: reportId,
         reportNumber,
+        createdAt: currentTimestamp,
+        updatedAt: currentTimestamp,
       })
       .returning();
     return created;
@@ -141,7 +166,7 @@ export class DatabaseStorage implements IStorage {
   async updateReport(id: string, report: Partial<InsertReport>): Promise<Report> {
     const [updated] = await db
       .update(reports)
-      .set({ ...report, updatedAt: new Date() })
+      .set({ ...report, updatedAt: Math.floor(Date.now() / 1000) })
       .where(eq(reports.id, id))
       .returning();
     return updated;
@@ -150,11 +175,11 @@ export class DatabaseStorage implements IStorage {
   async updateReportStatus(id: string, statusUpdate: UpdateReportStatus): Promise<Report> {
     const updateData: any = {
       status: statusUpdate.status,
-      updatedAt: new Date(),
+      updatedAt: Math.floor(Date.now() / 1000),
     };
 
     if (statusUpdate.status === 'approved') {
-      updateData.approvedAt = new Date();
+      updateData.approvedAt = Math.floor(Date.now() / 1000);
     }
 
     if (statusUpdate.rejectionReason) {
@@ -203,38 +228,94 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getReportsByUser(userId: string, status?: string): Promise<ReportWithDetails[]> {
-    let query = db
+    const baseQuery = db
       .select({
-        report: reports,
-        handler: users,
-        approver: {
-          id: sql`approver.id`,
-          email: sql`approver.email`,
-          firstName: sql`approver.first_name`,
-          lastName: sql`approver.last_name`,
-          profileImageUrl: sql`approver.profile_image_url`,
-          role: sql`approver.role`,
-          approvalLevel: sql`approver.approval_level`,
-          createdAt: sql`approver.created_at`,
-          updatedAt: sql`approver.updated_at`,
-        },
+        id: reports.id,
+        reportNumber: reports.reportNumber,
+        userNumber: reports.userNumber,
+        bankCode: reports.bankCode,
+        branchCode: reports.branchCode,
+        companyName: reports.companyName,
+        contactPersonName: reports.contactPersonName,
+        handlerId: reports.handlerId,
+        approverId: reports.approverId,
+        inquiryContent: reports.inquiryContent,
+        responseContent: reports.responseContent,
+        escalationRequired: reports.escalationRequired,
+        escalationReason: reports.escalationReason,
+        status: reports.status,
+        rejectionReason: reports.rejectionReason,
+        approvedAt: reports.approvedAt,
+        createdAt: reports.createdAt,
+        updatedAt: reports.updatedAt,
+        handlerFirstName: sql<string>`handler.first_name`,
+        handlerLastName: sql<string>`handler.last_name`,
+        handlerEmail: sql<string>`handler.email`,
+        handlerRole: sql<string>`handler.role`,
+        handlerApprovalLevel: sql<number>`handler.approval_level`,
+        handlerCreatedAt: sql<number>`handler.created_at`,
+        handlerUpdatedAt: sql<number>`handler.updated_at`,
+        approverFirstName: sql<string>`approver.first_name`,
+        approverLastName: sql<string>`approver.last_name`,
+        approverEmail: sql<string>`approver.email`,
+        approverRole: sql<string>`approver.role`,
+        approverApprovalLevel: sql<number>`approver.approval_level`,
+        approverCreatedAt: sql<number>`approver.created_at`,
+        approverUpdatedAt: sql<number>`approver.updated_at`,
       })
       .from(reports)
-      .innerJoin(users, eq(reports.handlerId, users.id))
-      .innerJoin(sql`users as approver`, sql`${reports.approverId} = approver.id`)
+      .innerJoin(users.as('handler'), eq(reports.handlerId, sql`handler.id`))
+      .innerJoin(users.as('approver'), eq(reports.approverId, sql`approver.id`))
       .where(eq(reports.handlerId, userId));
 
-    if (status) {
-      query = query.where(and(eq(reports.handlerId, userId), eq(reports.status, status)));
-    }
+    const query = status ? 
+      baseQuery.where(and(eq(reports.handlerId, userId), eq(reports.status, status))) :
+      baseQuery;
 
     const result = await query.orderBy(desc(reports.createdAt));
 
     return result.map(row => ({
-      ...row.report,
-      handler: row.handler,
-      approver: row.approver as User,
-    }));
+      id: row.id,
+      reportNumber: row.reportNumber,
+      userNumber: row.userNumber,
+      bankCode: row.bankCode,
+      branchCode: row.branchCode,
+      companyName: row.companyName,
+      contactPersonName: row.contactPersonName,
+      handlerId: row.handlerId,
+      approverId: row.approverId,
+      inquiryContent: row.inquiryContent,
+      responseContent: row.responseContent,
+      escalationRequired: row.escalationRequired,
+      escalationReason: row.escalationReason,
+      status: row.status,
+      rejectionReason: row.rejectionReason,
+      approvedAt: row.approvedAt,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      handler: {
+        id: row.handlerId,
+        firstName: row.handlerFirstName,
+        lastName: row.handlerLastName,
+        email: row.handlerEmail,
+        role: row.handlerRole,
+        approvalLevel: row.handlerApprovalLevel,
+        createdAt: row.handlerCreatedAt,
+        updatedAt: row.handlerUpdatedAt,
+        profileImageUrl: null,
+      },
+      approver: {
+        id: row.approverId,
+        firstName: row.approverFirstName,
+        lastName: row.approverLastName,
+        email: row.approverEmail,
+        role: row.approverRole,
+        approvalLevel: row.approverApprovalLevel,
+        createdAt: row.approverCreatedAt,
+        updatedAt: row.approverUpdatedAt,
+        profileImageUrl: null,
+      },
+    } as ReportWithDetails));
   }
 
   async getReportsForApproval(approverId: string): Promise<ReportWithDetails[]> {
@@ -342,9 +423,10 @@ export class DatabaseStorage implements IStorage {
     escalations: number;
   }> {
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const startOfDay = Math.floor(new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime() / 1000);
+    const endOfDay = Math.floor(new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).getTime() / 1000);
     
-    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    const startOfMonth = Math.floor(new Date(today.getFullYear(), today.getMonth(), 1).getTime() / 1000);
 
     const [
       todayResult,
@@ -352,15 +434,20 @@ export class DatabaseStorage implements IStorage {
       monthlyResult,
       escalationResult
     ] = await Promise.all([
-      db.select({ count: count() }).from(reports).where(sql`DATE(created_at) = CURRENT_DATE`),
+      db.select({ count: count() }).from(reports).where(
+        and(
+          sql`${reports.createdAt} >= ${startOfDay}`,
+          sql`${reports.createdAt} < ${endOfDay}`
+        )
+      ),
       db.select({ count: count() }).from(reports).where(eq(reports.status, "pending_approval")),
       db.select({ count: count() }).from(reports).where(
         and(
           eq(reports.status, "approved"),
-          sql`created_at >= ${startOfMonth}`
+          sql`${reports.createdAt} >= ${startOfMonth}`
         )
       ),
-      db.select({ count: count() }).from(reports).where(eq(reports.escalationRequired, true))
+      db.select({ count: count() }).from(reports).where(eq(reports.escalationRequired, 1)) // SQLite boolean as integer
     ]);
 
     return {

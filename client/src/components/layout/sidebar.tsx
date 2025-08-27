@@ -49,8 +49,8 @@ export default function Sidebar() {
       href: "/approval",
       icon: CheckCircle,
       current: location === "/approval",
-      badge: statistics?.pendingApprovals || 0,
-      show: user?.role === "approver" || user?.role === "admin",
+      badge: (statistics as any)?.pendingApprovals || 0,
+      show: (user as any)?.role === "approver" || (user as any)?.role === "admin",
     },
     {
       name: "履歴・検索",
@@ -179,7 +179,7 @@ export default function Sidebar() {
                   {getUserDisplayName(user)}
                 </p>
                 <p className="text-xs text-muted-foreground" data-testid="text-user-role">
-                  {user?.role ? getRoleDisplayName(user.role) : ""}
+                  {(user as any)?.role ? getRoleDisplayName((user as any).role) : ""}
                 </p>
               </div>
               <Button

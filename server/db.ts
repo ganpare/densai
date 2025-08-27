@@ -1,15 +1,104 @@
-import { Pool, neonConfig } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-serverless';
-import ws from "ws";
+import Database from 'better-sqlite3';
+import { drizzle } from 'drizzle-orm/better-sqlite3';
 import * as schema from "@shared/schema";
+import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
+import path from 'path';
 
-neonConfig.webSocketConstructor = ws;
+const sqlite = new Database('database.sqlite');
+export const db = drizzle(sqlite, { schema });
 
-if (!process.env.DATABASE_URL) {
-  throw new Error(
-    "DATABASE_URL must be set. Did you forget to provision a database?",
+// Initialize tables if they don't exist
+sqlite.pragma('journal_mode = WAL');
+
+// Create tables manually since we're using SQLite
+sqlite.exec(`
+  CREATE TABLE IF NOT EXISTS sessions (
+    sid TEXT PRIMARY KEY,
+    sess TEXT NOT NULL,
+    expire INTEGER NOT NULL
   );
-}
+  
+  CREATE INDEX IF NOT EXISTS IDX_session_expire ON sessions(expire);
+  
+  CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+    email TEXT UNIQUE,
+    first_name TEXT,
+    last_name TEXT,
+    profile_image_url TEXT,
+    role TEXT NOT NULL DEFAULT 'creator',
+    approval_level INTEGER DEFAULT 1,
+    created_at INTEGER DEFAULT (unixepoch()),
+    updated_at INTEGER DEFAULT (unixepoch())
+  );
+  
+  CREATE TABLE IF NOT EXISTS financial_institutions (
+    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+    bank_code TEXT NOT NULL UNIQUE,
+    bank_name TEXT NOT NULL,
+    created_at INTEGER DEFAULT (unixepoch())
+  );
+  
+  CREATE TABLE IF NOT EXISTS branches (
+    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+    institution_id TEXT NOT NULL,
+    branch_code TEXT NOT NULL,
+    branch_name TEXT NOT NULL,
+    created_at INTEGER DEFAULT (unixepoch()),
+    FOREIGN KEY(institution_id) REFERENCES financial_institutions(id)
+  );
+  
+  CREATE TABLE IF NOT EXISTS reports (
+    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+    report_number TEXT NOT NULL UNIQUE,
+    user_number TEXT NOT NULL,
+    bank_code TEXT NOT NULL,
+    branch_code TEXT NOT NULL,
+    company_name TEXT NOT NULL,
+    contact_person_name TEXT NOT NULL,
+    handler_id TEXT NOT NULL,
+    approver_id TEXT NOT NULL,
+    inquiry_content TEXT NOT NULL,
+    response_content TEXT NOT NULL,
+    escalation_required INTEGER NOT NULL DEFAULT 0,
+    escalation_reason TEXT,
+    status TEXT NOT NULL DEFAULT 'draft',
+    rejection_reason TEXT,
+    approved_at INTEGER,
+    created_at INTEGER DEFAULT (unixepoch()),
+    updated_at INTEGER DEFAULT (unixepoch()),
+    FOREIGN KEY(handler_id) REFERENCES users(id),
+    FOREIGN KEY(approver_id) REFERENCES users(id)
+  );
+`);
 
-export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-export const db = drizzle({ client: pool, schema });
+// Insert default users if none exist
+const userCount = sqlite.prepare('SELECT COUNT(*) as count FROM users').get() as { count: number };
+if (userCount.count === 0) {
+  sqlite.prepare(`
+    INSERT INTO users (id, email, first_name, last_name, role, approval_level) VALUES 
+    ('creator1', 'creator@example.com', '作成者', '太郎', 'creator', 1),
+    ('approver1', 'approver@example.com', '承認者', '花子', 'approver', 2),
+    ('admin1', 'admin@example.com', '管理者', '次郎', 'admin', 3)
+  `).run();
+  
+  // Insert sample financial institutions
+  sqlite.prepare(`
+    INSERT INTO financial_institutions (bank_code, bank_name) VALUES 
+    ('0001', 'みずほ銀行'),
+    ('0009', '三井住友銀行'),
+    ('0005', '三菱UFJ銀行')
+  `).run();
+  
+  const banks = sqlite.prepare('SELECT id, bank_code FROM financial_institutions').all() as Array<{id: string, bank_code: string}>;
+  
+  // Insert sample branches
+  for (const bank of banks) {
+    sqlite.prepare(`
+      INSERT INTO branches (institution_id, branch_code, branch_name) VALUES 
+      (?, '001', '本店'),
+      (?, '002', '支店'),
+      (?, '003', '営業部')
+    `).run(bank.id, bank.id, bank.id);
+  }
+}

@@ -7,7 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { ReportWithDetails } from "@shared/schema";
-import PrintModal from "./print-modal";
+// import PrintModal from "./print-modal";
 import { X, FileText, CheckCircle, XCircle, Printer, FileDown } from "lucide-react";
 
 interface ReportDetailModalProps {
@@ -143,11 +143,11 @@ export default function ReportDetailModal({
                   {report.reportNumber}
                 </h3>
                 <p className="text-sm text-muted-foreground" data-testid="text-created-date">
-                  作成日時: {formatDateTime(report.createdAt)}
+                  作成日時: {formatDateTime(report.createdAt?.toString() || '')}
                 </p>
                 {report.approvedAt && (
                   <p className="text-sm text-muted-foreground" data-testid="text-approved-date">
-                    承認日時: {formatDateTime(report.approvedAt)}
+                    承認日時: {formatDateTime(report.approvedAt?.toString() || '')}
                   </p>
                 )}
               </div>
@@ -306,13 +306,13 @@ export default function ReportDetailModal({
         </DialogContent>
       </Dialog>
 
-      {/* Print Modal */}
-      {showPrintModal && (
+      {/* Print Modal - Temporarily disabled */}
+      {/* {showPrintModal && (
         <PrintModal
           reportId={report.id}
           onClose={() => setShowPrintModal(false)}
         />
-      )}
+      )} */}
     </>
   );
 }

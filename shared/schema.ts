@@ -1,79 +1,77 @@
 import { sql } from 'drizzle-orm';
 import {
   index,
-  jsonb,
-  pgTable,
-  timestamp,
-  varchar,
+  sqliteTable,
   text,
-  boolean,
   integer,
-} from "drizzle-orm/pg-core";
+} from "drizzle-orm/sqlite-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 // Session storage table for Replit Auth
-export const sessions = pgTable(
+export const sessions = sqliteTable(
   "sessions",
   {
-    sid: varchar("sid").primaryKey(),
-    sess: jsonb("sess").notNull(),
-    expire: timestamp("expire").notNull(),
+    sid: text("sid").primaryKey(),
+    sess: text("sess").notNull(),
+    expire: integer("expire").notNull(),
   },
-  (table) => [index("IDX_session_expire").on(table.expire)],
+  (table) => ({
+    expireIdx: index("IDX_session_expire").on(table.expire),
+  }),
 );
 
 // User storage table for Replit Auth
-export const users = pgTable("users", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  email: varchar("email").unique(),
-  firstName: varchar("first_name"),
-  lastName: varchar("last_name"),
-  profileImageUrl: varchar("profile_image_url"),
-  role: varchar("role").notNull().default("creator"), // creator, approver, admin
+export const users = sqliteTable("users", {
+  id: text("id").primaryKey(),
+  email: text("email").unique(),
+  firstName: text("first_name"),
+  lastName: text("last_name"),
+  profileImageUrl: text("profile_image_url"),
+  role: text("role").notNull().default("creator"), // creator, approver, admin
   approvalLevel: integer("approval_level").default(1),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+  createdAt: integer("created_at"),
+  updatedAt: integer("updated_at"),
 });
 
 // Financial institution master data
-export const financialInstitutions = pgTable("financial_institutions", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  bankCode: varchar("bank_code").notNull().unique(),
-  bankName: varchar("bank_name").notNull(),
-  createdAt: timestamp("created_at").defaultNow(),
+export const financialInstitutions = sqliteTable("financial_institutions", {
+  id: text("id").primaryKey(),
+  bankCode: text("bank_code").notNull().unique(),
+  bankName: text("bank_name").notNull(),
+  createdAt: integer("created_at"),
 });
 
 // Branches of financial institutions
-export const branches = pgTable("branches", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  institutionId: varchar("institution_id").notNull().references(() => financialInstitutions.id),
-  branchCode: varchar("branch_code").notNull(),
-  branchName: varchar("branch_name").notNull(),
-  createdAt: timestamp("created_at").defaultNow(),
+export const branches = sqliteTable("branches", {
+  id: text("id").primaryKey(),
+  institutionId: text("institution_id").notNull().references(() => financialInstitutions.id),
+  branchCode: text("branch_code").notNull(),
+  branchName: text("branch_name").notNull(),
+  createdAt: integer("created_at"),
 });
 
 // Inquiry response reports
-export const reports = pgTable("reports", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  reportNumber: varchar("report_number").notNull().unique(),
-  userNumber: varchar("user_number").notNull(),
-  bankCode: varchar("bank_code").notNull(),
-  branchCode: varchar("branch_code").notNull(),
-  companyName: varchar("company_name").notNull(),
-  contactPersonName: varchar("contact_person_name").notNull(),
-  handlerId: varchar("handler_id").notNull().references(() => users.id),
-  approverId: varchar("approver_id").notNull().references(() => users.id),
+export const reports = sqliteTable("reports", {
+  id: text("id").primaryKey(),
+  reportNumber: text("report_number").notNull().unique(),
+  userNumber: text("user_number").notNull(),
+  bankCode: text("bank_code").notNull(),
+  branchCode: text("branch_code").notNull(),
+  companyName: text("company_name").notNull(),
+  contactPersonName: text("contact_person_name").notNull(),
+  handlerId: text("handler_id").notNull().references(() => users.id),
+  approverId: text("approver_id").notNull().references(() => users.id),
   inquiryContent: text("inquiry_content").notNull(),
   responseContent: text("response_content").notNull(),
-  escalationRequired: boolean("escalation_required").notNull().default(false),
+  escalationRequired: integer("escalation_required", { mode: 'boolean' }).notNull().default(false),
   escalationReason: text("escalation_reason"),
-  status: varchar("status").notNull().default("draft"), // draft, pending_approval, approved, rejected
+  status: text("status").notNull().default("draft"), // draft, pending_approval, approved, rejected
   rejectionReason: text("rejection_reason"),
-  approvedAt: timestamp("approved_at"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+  approvedAt: integer("approved_at"),
+  createdAt: integer("created_at"),
+  updatedAt: integer("updated_at"),
 });
 
 // Relations

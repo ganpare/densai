@@ -74,54 +74,31 @@ export default function ReportForm() {
     queryKey: ["/api/reports", reportId],
     enabled: !!reportId,
     retry: false,
-    onSuccess: (data) => {
-      if (data) {
-        form.reset({
-          userNumber: data.userNumber,
-          bankCode: data.bankCode,
-          branchCode: data.branchCode,
-          companyName: data.companyName,
-          contactPersonName: data.contactPersonName,
-          approverId: data.approverId,
-          inquiryContent: data.inquiryContent,
-          responseContent: data.responseContent,
-          escalationRequired: data.escalationRequired,
-          escalationReason: data.escalationReason || "",
-        });
-      }
-    },
-    onError: (error: Error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
-        return;
-      }
-    },
   });
+  
+  // Update form when data loads
+  useEffect(() => {
+    if (existingReport) {
+      const data = existingReport as any;
+      form.reset({
+        userNumber: data.userNumber,
+        bankCode: data.bankCode,
+        branchCode: data.branchCode,
+        companyName: data.companyName,
+        contactPersonName: data.contactPersonName,
+        approverId: data.approverId,
+        inquiryContent: data.inquiryContent,
+        responseContent: data.responseContent,
+        escalationRequired: data.escalationRequired,
+        escalationReason: data.escalationReason || "",
+      });
+    }
+  }, [existingReport, form]);
 
   // Get approvers for dropdown
   const { data: approvers = [] } = useQuery({
     queryKey: ["/api/users", "approver"],
     retry: false,
-    onError: (error: Error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
-        return;
-      }
-    },
   });
 
   // Save draft mutation
@@ -366,7 +343,7 @@ export default function ReportForm() {
                                   </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
-                                  {approvers.map((approver: any) => (
+                                  {(approvers as any[]).map((approver: any) => (
                                     <SelectItem key={approver.id} value={approver.id}>
                                       {approver.firstName} {approver.lastName}
                                     </SelectItem>

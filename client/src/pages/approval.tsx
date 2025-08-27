@@ -40,22 +40,9 @@ export default function Approval() {
     }
   }, [isAuthenticated, authLoading, toast]);
 
-  const { data: pendingReports = [], isLoading } = useQuery({
+  const { data: pendingReports = [], isLoading } = useQuery<ReportWithDetails[]>({
     queryKey: ["/api/reports", "pending"],
     retry: false,
-    onError: (error: Error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
-        return;
-      }
-    },
   });
 
   // Approve report mutation
@@ -185,13 +172,13 @@ export default function Approval() {
               <div>
                 <h2 className="text-2xl font-bold">承認待ち報告書</h2>
                 <p className="text-muted-foreground">
-                  承認権限: <span className="text-primary font-medium">レベル{user?.approvalLevel || 1}</span>
+                  承認権限: <span className="text-primary font-medium">レベル{(user as any)?.approvalLevel || 1}</span>
                 </p>
               </div>
-              {pendingReports.length > 0 && (
+              {(pendingReports as any[]).length > 0 && (
                 <Badge variant="secondary" className="bg-warning/10 text-warning">
                   <Clock className="mr-1 h-3 w-3" />
-                  {pendingReports.length}件待ち
+                  {(pendingReports as any[]).length}件待ち
                 </Badge>
               )}
             </div>
@@ -206,7 +193,7 @@ export default function Approval() {
                     </div>
                   </CardContent>
                 </Card>
-              ) : pendingReports.length === 0 ? (
+              ) : (pendingReports as any[]).length === 0 ? (
                 <Card>
                   <CardContent className="py-8">
                     <div className="text-center text-muted-foreground">
@@ -215,7 +202,7 @@ export default function Approval() {
                   </CardContent>
                 </Card>
               ) : (
-                pendingReports.map((report: ReportWithDetails) => (
+                (pendingReports as ReportWithDetails[]).map((report: ReportWithDetails) => (
                   <Card key={report.id} data-testid={`card-report-${report.id}`}>
                     <CardContent className="p-6">
                       <div className="flex items-start justify-between mb-4">
@@ -224,7 +211,7 @@ export default function Approval() {
                             {report.reportNumber}
                           </h3>
                           <p className="text-sm text-muted-foreground" data-testid={`text-submitted-at-${report.id}`}>
-                            提出日時: {formatDateTime(report.createdAt)}
+                            提出日時: {formatDateTime(report.createdAt?.toString() || '')}
                           </p>
                         </div>
                         <Badge variant="secondary" className="bg-warning/10 text-warning">

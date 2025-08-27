@@ -38,37 +38,11 @@ export default function Home() {
   const { data: statistics, isLoading: statsLoading } = useQuery({
     queryKey: ["/api/statistics"],
     retry: false,
-    onError: (error: Error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
-        return;
-      }
-    },
   });
 
-  const { data: reports = [], isLoading: reportsLoading } = useQuery({
+  const { data: reports = [], isLoading: reportsLoading } = useQuery<ReportWithDetails[]>({
     queryKey: ["/api/reports"],
     retry: false,
-    onError: (error: Error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "Unauthorized", 
-          description: "You are logged out. Logging in again...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
-        return;
-      }
-    },
   });
 
   const getStatusBadge = (status: string) => {
@@ -122,7 +96,7 @@ export default function Home() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <StatisticsCard
                 title="今日の問い合わせ"
-                value={statistics?.todayInquiries || 0}
+                value={(statistics as any)?.todayInquiries || 0}
                 icon={<Phone className="text-primary text-xl" />}
                 bgColor="bg-primary/10"
                 loading={statsLoading}
@@ -130,7 +104,7 @@ export default function Home() {
               />
               <StatisticsCard
                 title="承認待ち"
-                value={statistics?.pendingApprovals || 0}
+                value={(statistics as any)?.pendingApprovals || 0}
                 icon={<Clock className="text-warning text-xl" />}
                 bgColor="bg-warning/10"
                 textColor="text-warning"
@@ -139,7 +113,7 @@ export default function Home() {
               />
               <StatisticsCard
                 title="今月完了"
-                value={statistics?.monthlyCompleted || 0}
+                value={(statistics as any)?.monthlyCompleted || 0}
                 icon={<CheckCircle className="text-success text-xl" />}
                 bgColor="bg-success/10"
                 textColor="text-success"
@@ -148,7 +122,7 @@ export default function Home() {
               />
               <StatisticsCard
                 title="エスカレーション"
-                value={statistics?.escalations || 0}
+                value={(statistics as any)?.escalations || 0}
                 icon={<AlertTriangle className="text-destructive text-xl" />}
                 bgColor="bg-destructive/10"
                 textColor="text-destructive"
@@ -200,7 +174,7 @@ export default function Home() {
                           </TableCell>
                         </TableRow>
                       ) : (
-                        reports.slice(0, 10).map((report: ReportWithDetails) => (
+                        (reports as ReportWithDetails[]).slice(0, 10).map((report: ReportWithDetails) => (
                           <TableRow key={report.id} className="hover:bg-accent/50">
                             <TableCell className="font-medium" data-testid={`text-report-id-${report.id}`}>
                               {report.reportNumber}
@@ -215,7 +189,7 @@ export default function Home() {
                               {getStatusBadge(report.status)}
                             </TableCell>
                             <TableCell className="text-muted-foreground" data-testid={`text-created-${report.id}`}>
-                              {formatDateTime(report.createdAt)}
+                              {formatDateTime(report.createdAt?.toString() || '')}
                             </TableCell>
                             <TableCell>
                               <div className="flex items-center space-x-2">

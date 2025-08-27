@@ -55,22 +55,9 @@ export default function History() {
     queryParams.set('status', statusFilter);
   }
 
-  const { data: reports = [], isLoading } = useQuery({
+  const { data: reports = [], isLoading } = useQuery<ReportWithDetails[]>({
     queryKey: ["/api/reports", queryParams.toString()],
     retry: false,
-    onError: (error: Error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
-        return;
-      }
-    },
   });
 
   const getStatusBadge = (status: string) => {
@@ -173,7 +160,7 @@ export default function History() {
                   検索結果
                   {!isLoading && (
                     <Badge variant="secondary" className="ml-2">
-                      {reports.length}件
+                      {(reports as any[]).length}件
                     </Badge>
                   )}
                 </CardTitle>
@@ -199,7 +186,7 @@ export default function History() {
                             <div className="animate-pulse">検索中...</div>
                           </TableCell>
                         </TableRow>
-                      ) : reports.length === 0 ? (
+                      ) : (reports as any[]).length === 0 ? (
                         <TableRow>
                           <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                             {debouncedSearch || statusFilter !== 'all' 
@@ -209,7 +196,7 @@ export default function History() {
                           </TableCell>
                         </TableRow>
                       ) : (
-                        reports.map((report: ReportWithDetails) => (
+                        (reports as ReportWithDetails[]).map((report: ReportWithDetails) => (
                           <TableRow key={report.id} className="hover:bg-accent/50" data-testid={`row-report-${report.id}`}>
                             <TableCell className="font-medium" data-testid={`text-report-number-${report.id}`}>
                               {report.reportNumber}
@@ -227,7 +214,7 @@ export default function History() {
                               {getStatusBadge(report.status)}
                             </TableCell>
                             <TableCell className="text-muted-foreground" data-testid={`text-created-${report.id}`}>
-                              {formatDateTime(report.createdAt)}
+                              {formatDateTime(report.createdAt?.toString() || '')}
                             </TableCell>
                             <TableCell>
                               <Button
