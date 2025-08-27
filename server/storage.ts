@@ -206,10 +206,10 @@ export class DatabaseStorage implements IStorage {
         handler: users,
         approver: {
           id: sql`approver.id`,
-          email: sql`approver.email`,
+
           firstName: sql`approver.first_name`,
           lastName: sql`approver.last_name`,
-          profileImageUrl: sql`approver.profile_image_url`,
+
           role: sql`approver.role`,
           approvalLevel: sql`approver.approval_level`,
           createdAt: sql`approver.created_at`,
@@ -255,14 +255,14 @@ export class DatabaseStorage implements IStorage {
         updatedAt: reports.updatedAt,
         handlerFirstName: sql<string>`handler.first_name`,
         handlerLastName: sql<string>`handler.last_name`,
-        handlerEmail: sql<string>`handler.email`,
+        handlerUsername: sql<string>`handler.username`,
         handlerRole: sql<string>`handler.role`,
         handlerApprovalLevel: sql<number>`handler.approval_level`,
         handlerCreatedAt: sql<number>`handler.created_at`,
         handlerUpdatedAt: sql<number>`handler.updated_at`,
         approverFirstName: sql<string>`approver.first_name`,
         approverLastName: sql<string>`approver.last_name`,
-        approverEmail: sql<string>`approver.email`,
+        approverUsername: sql<string>`approver.username`,
         approverRole: sql<string>`approver.role`,
         approverApprovalLevel: sql<number>`approver.approval_level`,
         approverCreatedAt: sql<number>`approver.created_at`,
@@ -302,23 +302,23 @@ export class DatabaseStorage implements IStorage {
         id: row.handlerId,
         firstName: row.handlerFirstName,
         lastName: row.handlerLastName,
-        email: row.handlerEmail,
+        username: row.handlerUsername,
         role: row.handlerRole,
         approvalLevel: row.handlerApprovalLevel,
         createdAt: row.handlerCreatedAt,
         updatedAt: row.handlerUpdatedAt,
-        profileImageUrl: null,
+
       },
       approver: {
         id: row.approverId,
         firstName: row.approverFirstName,
         lastName: row.approverLastName,
-        email: row.approverEmail,
+        username: row.approverUsername,
         role: row.approverRole,
         approvalLevel: row.approverApprovalLevel,
         createdAt: row.approverCreatedAt,
         updatedAt: row.approverUpdatedAt,
-        profileImageUrl: null,
+
       },
     } as ReportWithDetails));
   }
@@ -330,10 +330,10 @@ export class DatabaseStorage implements IStorage {
         handler: users,
         approver: {
           id: sql`approver.id`,
-          email: sql`approver.email`,
+
           firstName: sql`approver.first_name`,
           lastName: sql`approver.last_name`,
-          profileImageUrl: sql`approver.profile_image_url`,
+
           role: sql`approver.role`,
           approvalLevel: sql`approver.approval_level`,
           createdAt: sql`approver.created_at`,
@@ -360,10 +360,10 @@ export class DatabaseStorage implements IStorage {
         handler: users,
         approver: {
           id: sql`approver.id`,
-          email: sql`approver.email`,
+
           firstName: sql`approver.first_name`,
           lastName: sql`approver.last_name`,
-          profileImageUrl: sql`approver.profile_image_url`,
+
           role: sql`approver.role`,
           approvalLevel: sql`approver.approval_level`,
           createdAt: sql`approver.created_at`,
@@ -391,10 +391,10 @@ export class DatabaseStorage implements IStorage {
         handler: users,
         approver: {
           id: sql`approver.id`,
-          email: sql`approver.email`,
+
           firstName: sql`approver.first_name`,
           lastName: sql`approver.last_name`,
-          profileImageUrl: sql`approver.profile_image_url`,
+
           role: sql`approver.role`,
           approvalLevel: sql`approver.approval_level`,
           createdAt: sql`approver.created_at`,

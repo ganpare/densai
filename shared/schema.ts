@@ -27,10 +27,8 @@ export const users = sqliteTable("users", {
   id: text("id").primaryKey(),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
-  email: text("email").unique(),
   firstName: text("first_name"),
   lastName: text("last_name"),
-  profileImageUrl: text("profile_image_url"),
   role: text("role").notNull().default("creator"), // creator, approver, admin
   approvalLevel: integer("approval_level").default(1),
   createdAt: integer("created_at"),
@@ -109,10 +107,10 @@ export const reportRelations = relations(reports, ({ one }) => ({
 // Zod schemas
 export const insertUserSchema = createInsertSchema(users).pick({
   id: true,
-  email: true,
+  username: true,
+  password: true,
   firstName: true,
   lastName: true,
-  profileImageUrl: true,
   role: true,
   approvalLevel: true,
 });

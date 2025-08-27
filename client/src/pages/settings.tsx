@@ -219,24 +219,6 @@ export default function Settings() {
                     />
                   </div>
 
-                  <FormField
-                    control={profileForm.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>メールアドレス</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="email"
-                            placeholder="example@company.com"
-                            data-testid="input-email"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
 
                   <div className="flex justify-end">
                     <Button
@@ -386,7 +368,7 @@ export default function Settings() {
                 通知設定
               </CardTitle>
               <CardDescription>
-                システム通知とメール通知の設定
+                システム通知の設定
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -411,18 +393,6 @@ export default function Settings() {
                     </p>
                   </div>
                   <Switch defaultChecked data-testid="switch-status-notifications" />
-                </div>
-
-                <Separator />
-
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>メール通知</Label>
-                    <p className="text-sm text-muted-foreground">
-                      重要な更新をメールで受け取る
-                    </p>
-                  </div>
-                  <Switch data-testid="switch-email-notifications" />
                 </div>
 
                 <Separator />
