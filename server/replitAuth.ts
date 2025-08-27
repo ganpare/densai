@@ -35,7 +35,17 @@ export async function setupAuth(app: Express) {
       if (user && user.password === password) {
         // セッションに保存
         (req.session as any).userId = user.id;
-        res.json({ success: true, user: { ...user, password: undefined } });
+        console.log('Login - Session ID:', req.sessionID, 'Setting userId:', user.id);
+        
+        // セッション保存を明示的に行う
+        req.session.save((err) => {
+          if (err) {
+            console.error('Session save error:', err);
+            return res.status(500).json({ message: 'Session save failed' });
+          }
+          console.log('Session saved successfully for user:', user.id);
+          res.json({ success: true, user: { ...user, password: undefined } });
+        });
       } else {
         res.status(401).json({ message: "ユーザーIDまたはパスワードが正しくありません" });
       }
@@ -59,16 +69,21 @@ export async function setupAuth(app: Express) {
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
   const userId = (req.session as any).userId;
   
+  console.log('Auth check - Session ID:', req.sessionID, 'User ID in session:', userId);
+  
   if (!userId) {
+    console.log('No userId found in session');
     return res.status(401).json({ message: "Unauthorized" });
   }
   
   // Refresh user data from storage
   const user = await storage.getUser(userId);
   if (!user) {
+    console.log('User not found in database:', userId);
     return res.status(401).json({ message: "Unauthorized" });
   }
   
+  console.log('Authentication successful for user:', user.id);
   // Attach user to request
   (req as any).user = { claims: { sub: user.id } };
   
