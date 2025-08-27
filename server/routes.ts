@@ -319,6 +319,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Change password endpoint
+  app.post('/api/auth/change-password', isAuthenticated, async (req: any, res) => {
+    try {
+      const { currentPassword, newPassword } = req.body;
+      const userId = req.user.claims.sub;
+      
+      if (!currentPassword || !newPassword) {
+        return res.status(400).json({ message: "現在のパスワードと新しいパスワードが必要です" });
+      }
+      
+      // 現在のユーザー取得
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "ユーザーが見つかりません" });
+      }
+      
+      // 現在のパスワード確認
+      if (user.password !== currentPassword) {
+        return res.status(400).json({ message: "現在のパスワードが正しくありません" });
+      }
+      
+      // パスワード更新
+      await storage.updateUser(userId, { password: newPassword });
+      
+      res.json({ success: true, message: "パスワードが正常に変更されました" });
+    } catch (error) {
+      console.error("Password change error:", error);
+      res.status(500).json({ message: "パスワード変更に失敗しました" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

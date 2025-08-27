@@ -69,6 +69,12 @@ export default function Sidebar() {
       current: location === "/history",
     },
     {
+      name: "設定",
+      href: "/settings",
+      icon: Settings,
+      current: location === "/settings",
+    },
+    {
       name: "ユーザー管理",
       href: "/users",
       icon: Users,
