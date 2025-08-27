@@ -8,14 +8,15 @@ export function getSession() {
   
   return session({
     secret: "development-secret-key-for-offline-use",
-    resave: false,
-    saveUninitialized: false,
+    resave: true, // 必要な変更
+    saveUninitialized: true, // 必要な変更
     cookie: {
-      httpOnly: false, // デバッグのため一時的にfalseに
+      httpOnly: false,
       secure: false,
-      sameSite: 'lax',
+      sameSite: false, // 最も緩い設定に変更
       maxAge: sessionTtl,
     },
+    name: 'sessionId', // セッション名を明示的に指定
   });
 }
 
@@ -35,17 +36,11 @@ export async function setupAuth(app: Express) {
       if (user && user.password === password) {
         // セッションに保存
         (req.session as any).userId = user.id;
+        (req.session as any).user = user; // ユーザー情報も保存
         console.log('Login - Session ID:', req.sessionID, 'Setting userId:', user.id);
+        console.log('Session after setting:', req.session);
         
-        // セッション保存を明示的に行う
-        req.session.save((err) => {
-          if (err) {
-            console.error('Session save error:', err);
-            return res.status(500).json({ message: 'Session save failed' });
-          }
-          console.log('Session saved successfully for user:', user.id);
-          res.json({ success: true, user: { ...user, password: undefined } });
-        });
+        res.json({ success: true, user: { ...user, password: undefined } });
       } else {
         res.status(401).json({ message: "ユーザーIDまたはパスワードが正しくありません" });
       }
@@ -68,19 +63,25 @@ export async function setupAuth(app: Express) {
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
   const userId = (req.session as any).userId;
+  const sessionUser = (req.session as any).user;
   
-  console.log('Auth check - Session ID:', req.sessionID, 'User ID in session:', userId);
+  console.log('Auth check - Session ID:', req.sessionID);
+  console.log('Session contents:', req.session);
+  console.log('User ID in session:', userId);
   
-  if (!userId) {
-    console.log('No userId found in session');
+  if (!userId && !sessionUser) {
+    console.log('No user found in session');
     return res.status(401).json({ message: "Unauthorized" });
   }
   
-  // Refresh user data from storage
-  const user = await storage.getUser(userId);
-  if (!user) {
-    console.log('User not found in database:', userId);
-    return res.status(401).json({ message: "Unauthorized" });
+  // セッションにユーザー情報がある場合はそれを使用
+  let user = sessionUser;
+  if (!user && userId) {
+    user = await storage.getUser(userId);
+    if (!user) {
+      console.log('User not found in database:', userId);
+      return res.status(401).json({ message: "Unauthorized" });
+    }
   }
   
   console.log('Authentication successful for user:', user.id);
