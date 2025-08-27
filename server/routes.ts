@@ -296,7 +296,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // PDF Generation route (placeholder - would integrate with PDF service)
+  // PDF Generation route
   app.get('/api/reports/:id/pdf', isAuthenticated, async (req, res) => {
     try {
       const { id } = req.params;
@@ -310,9 +310,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Only approved reports can be printed" });
       }
 
-      // TODO: Implement actual PDF generation
-      // For now, return success message
-      res.json({ message: "PDF generation would be implemented here", reportId: id });
+      // PDF生成に必要なデータを返す
+      const pdfData = {
+        reportNumber: report.reportNumber,
+        userNumber: report.userNumber,
+        bankCode: report.bankCode,
+        branchCode: report.branchCode,
+        companyName: report.companyName,
+        contactPersonName: report.contactPersonName,
+        handlerName: `${report.handler.lastName} ${report.handler.firstName}`,
+        approverName: `${report.approver.lastName} ${report.approver.firstName}`,
+        inquiryContent: report.inquiryContent,
+        responseContent: report.responseContent,
+        escalationRequired: report.escalationRequired,
+        escalationReason: report.escalationReason,
+        approvedAt: report.approvedAt,
+        createdAt: report.createdAt
+      };
+
+      res.json({ 
+        success: true, 
+        message: "PDF生成用データを取得しました", 
+        data: pdfData 
+      });
     } catch (error) {
       console.error("Error generating PDF:", error);
       res.status(500).json({ message: "Failed to generate PDF" });

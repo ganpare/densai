@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest } from "@/lib/queryClient";
 import { FileDown, Printer } from "lucide-react";
+import jsPDF from 'jspdf';
 
 interface PrintModalProps {
   reportId: string;
@@ -31,13 +32,19 @@ export default function PrintModal({ reportId, onClose }: PrintModalProps) {
   const generatePdfMutation = useMutation({
     mutationFn: async () => {
       const response = await apiRequest("GET", `/api/reports/${reportId}/pdf`);
-      return response.json();
+      const result = await response.json();
+      return result;
     },
-    onSuccess: () => {
-      toast({
-        title: "PDF出力完了",
-        description: "PDFファイルの生成が完了しました。",
-      });
+    onSuccess: (data) => {
+      if (data.success && data.data) {
+        generateAndDownloadPDF(data.data);
+        toast({
+          title: "PDF出力完了",
+          description: "PDFファイルのダウンロードが開始されました。",
+        });
+      } else {
+        throw new Error("PDF data not available");
+      }
       onClose();
     },
     onError: (error: Error) => {
@@ -97,6 +104,75 @@ export default function PrintModal({ reportId, onClose }: PrintModalProps) {
       }
       printMutation.mutate(selectedPrinter);
     }
+  };
+
+  // PDF生成関数
+  const generateAndDownloadPDF = (reportData: any) => {
+    const pdf = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4'
+    });
+
+    // 日本語フォントの設定が必要な場合は、カスタムフォントを追加
+    
+    // PDFタイトル
+    pdf.setFontSize(16);
+    pdf.text('電子債権問い合わせ対応報告書', 20, 20);
+    
+    // 基本情報
+    pdf.setFontSize(12);
+    let yPos = 40;
+    
+    pdf.text(`報告書番号: ${reportData.reportNumber}`, 20, yPos);
+    yPos += 10;
+    pdf.text(`ユーザー番号: ${reportData.userNumber}`, 20, yPos);
+    yPos += 10;
+    pdf.text(`金庫コード: ${reportData.bankCode}`, 20, yPos);
+    yPos += 10;
+    pdf.text(`支店コード: ${reportData.branchCode}`, 20, yPos);
+    yPos += 10;
+    pdf.text(`企業名: ${reportData.companyName}`, 20, yPos);
+    yPos += 10;
+    pdf.text(`担当者: ${reportData.contactPersonName}`, 20, yPos);
+    yPos += 15;
+    
+    // 問い合わせ内容
+    pdf.text('問い合わせ内容:', 20, yPos);
+    yPos += 10;
+    const inquiryLines = pdf.splitTextToSize(reportData.inquiryContent, 170);
+    pdf.text(inquiryLines, 20, yPos);
+    yPos += inquiryLines.length * 5 + 10;
+    
+    // 回答内容
+    pdf.text('回答内容:', 20, yPos);
+    yPos += 10;
+    const responseLines = pdf.splitTextToSize(reportData.responseContent, 170);
+    pdf.text(responseLines, 20, yPos);
+    yPos += responseLines.length * 5 + 10;
+    
+    // エスカレーション情報
+    if (reportData.escalationRequired) {
+      pdf.text('エスカレーション理由:', 20, yPos);
+      yPos += 10;
+      const escalationLines = pdf.splitTextToSize(reportData.escalationReason || '', 170);
+      pdf.text(escalationLines, 20, yPos);
+      yPos += escalationLines.length * 5 + 10;
+    }
+    
+    // 承認情報
+    pdf.text(`作成者: ${reportData.handlerName}`, 20, yPos);
+    yPos += 10;
+    pdf.text(`承認者: ${reportData.approverName}`, 20, yPos);
+    yPos += 10;
+    
+    if (reportData.approvedAt) {
+      const approvedDate = new Date(reportData.approvedAt * 1000).toLocaleDateString('ja-JP');
+      pdf.text(`承認日時: ${approvedDate}`, 20, yPos);
+    }
+    
+    // PDFをダウンロード
+    pdf.save(`報告書_${reportData.reportNumber}.pdf`);
   };
 
   const isExecuting = generatePdfMutation.isPending || printMutation.isPending;
