@@ -132,17 +132,28 @@ export default function ReportForm() {
   // Submit for approval mutation
   const submitMutation = useMutation({
     mutationFn: async (data: ReportFormData) => {
-      if (reportId) {
-        // Update existing report first
-        await apiRequest("PATCH", `/api/reports/${reportId}`, data);
-        // Then submit for approval
-        return await apiRequest("PATCH", `/api/reports/${reportId}/submit`);
-      } else {
-        // Create new report
-        const response = await apiRequest("POST", "/api/reports", data);
-        const report = await response.json();
-        // Submit for approval
-        return await apiRequest("PATCH", `/api/reports/${report.id}/submit`);
+      console.log("🔄 Starting submit mutation...", { reportId, data });
+      try {
+        if (reportId) {
+          console.log("📝 Updating existing report...");
+          // Update existing report first
+          await apiRequest("PATCH", `/api/reports/${reportId}`, data);
+          console.log("✅ Report updated, now submitting for approval...");
+          // Then submit for approval
+          return await apiRequest("PATCH", `/api/reports/${reportId}/submit`);
+        } else {
+          console.log("🆕 Creating new report...");
+          // Create new report
+          const response = await apiRequest("POST", "/api/reports", data);
+          const report = await response.json();
+          console.log("✅ Report created:", report);
+          console.log("📤 Now submitting for approval...");
+          // Submit for approval
+          return await apiRequest("PATCH", `/api/reports/${report.id}/submit`);
+        }
+      } catch (error) {
+        console.error("❌ Submit mutation failed:", error);
+        throw error;
       }
     },
     onSuccess: () => {
@@ -179,6 +190,15 @@ export default function ReportForm() {
   };
 
   const onSubmit = (data: ReportFormData) => {
+    console.log("🚀 Submit button clicked!", data);
+    console.log("📋 Form errors:", form.formState.errors);
+    console.log("✅ Form is valid:", form.formState.isValid);
+    
+    if (!form.formState.isValid) {
+      console.error("❌ Form validation failed!");
+      return;
+    }
+    
     submitMutation.mutate(data);
   };
 
