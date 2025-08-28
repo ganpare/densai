@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { Bell } from "lucide-react";
+import { Bell, Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Link } from "wouter";
 
 interface HeaderProps {
   title: string;
@@ -46,6 +47,12 @@ export default function Header({ title }: HeaderProps) {
           <span className="mx-2">|</span>
           <span data-testid="text-current-time">{formatTime(currentTime)}</span>
         </div>
+        <Link href="/">
+          <Button variant="ghost" size="sm" className="gap-1" data-testid="button-home">
+            <Home className="h-4 w-4" />
+            ダッシュボード
+          </Button>
+        </Link>
         <Button variant="ghost" size="sm" className="relative" data-testid="button-notifications">
           <Bell className="h-4 w-4" />
         </Button>
