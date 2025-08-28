@@ -172,7 +172,7 @@ export default function PrintModal({ reportId, onClose }: PrintModalProps) {
     }
     
     // PDFをダウンロード
-    pdf.save(`報告書_${reportData.reportNumber}.pdf`);
+    pdf.save(`${reportData.bankCode}_${reportData.branchCode}_${reportData.reportNumber}.pdf`);
   };
 
   const isExecuting = generatePdfMutation.isPending || printMutation.isPending;
