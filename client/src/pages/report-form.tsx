@@ -190,15 +190,19 @@ export default function ReportForm() {
   };
 
   const onSubmit = (data: ReportFormData) => {
-    console.log("🚀 Submit button clicked!", data);
+    console.log("🚀 onSubmit called!", data);
     console.log("📋 Form errors:", form.formState.errors);
     console.log("✅ Form is valid:", form.formState.isValid);
+    console.log("👤 User authenticated:", user);
+    console.log("📝 Is edit mode:", isEdit);
+    console.log("🆔 Report ID:", reportId);
     
     if (!form.formState.isValid) {
       console.error("❌ Form validation failed!");
       return;
     }
     
+    console.log("🎯 Calling submitMutation.mutate...");
     submitMutation.mutate(data);
   };
 
@@ -446,7 +450,15 @@ export default function ReportForm() {
                   </Button>
                   <Button 
                     type="button" 
-                    onClick={form.handleSubmit(onSubmit)}
+                    onClick={(e) => {
+                      console.log("🖱️ Submit button CLICKED!");
+                      console.log("🔒 Button disabled?", submitMutation.isPending);
+                      console.log("📄 Form data:", form.getValues());
+                      e.preventDefault();
+                      const submitHandler = form.handleSubmit(onSubmit);
+                      console.log("🎪 Calling handleSubmit...");
+                      submitHandler();
+                    }}
                     disabled={submitMutation.isPending}
                     data-testid="button-submit"
                   >
