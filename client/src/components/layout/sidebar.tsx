@@ -81,12 +81,6 @@ export default function Sidebar() {
       current: location === "/users",
       show: (user as any)?.role === "admin",
     },
-    {
-      name: "設定",
-      href: "/settings",
-      icon: Settings,
-      current: location === "/settings",
-    },
   ];
 
   const filteredNavigation = navigation.filter(item => item.show !== false);

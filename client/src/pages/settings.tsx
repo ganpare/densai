@@ -16,6 +16,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { User, Lock, Bell, Shield, Database, AlertCircle, CheckCircle, Cog } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import Sidebar from "@/components/layout/sidebar";
+import Header from "@/components/layout/header";
 
 // プロファイル更新スキーマ
 const profileSchema = z.object({
@@ -132,17 +134,21 @@ export default function Settings() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* ヘッダー */}
-      <div className="space-y-0.5">
-        <div className="flex items-center gap-2">
-          <Cog className="h-6 w-6 text-primary" />
-          <h1 className="text-2xl font-bold text-foreground">設定</h1>
-        </div>
-        <p className="text-muted-foreground">
-          アカウント設定とシステム設定を管理
-        </p>
-      </div>
+    <div className="flex h-screen bg-background">
+      <Sidebar />
+      <div className="flex-1 flex flex-col lg:ml-64">
+        <Header title="設定" />
+        <main className="flex-1 p-6 space-y-6">
+          {/* ヘッダー */}
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-2">
+              <Cog className="h-6 w-6 text-primary" />
+              <h1 className="text-2xl font-bold text-foreground">設定</h1>
+            </div>
+            <p className="text-muted-foreground">
+              アカウント設定とシステム設定を管理
+            </p>
+          </div>
 
       <Separator />
 
@@ -520,6 +526,8 @@ export default function Settings() {
           )}
         </TabsContent>
       </Tabs>
+        </main>
+      </div>
     </div>
   );
 }
