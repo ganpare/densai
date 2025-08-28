@@ -16,7 +16,7 @@ import {
 } from "@shared/schema";
 import { db } from "./db";
 import { randomUUID } from "crypto";
-import { eq, desc, and, or, like, sql, count } from "drizzle-orm";
+import { eq, desc, and, or, like, sql, count, alias } from "drizzle-orm";
 
 export interface IStorage {
   // User operations (mandatory for Replit Auth)
@@ -233,94 +233,37 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getReportsByUser(userId: string, status?: string): Promise<ReportWithDetails[]> {
-    const baseQuery = db
+    let query = db
       .select({
-        id: reports.id,
-        reportNumber: reports.reportNumber,
-        userNumber: reports.userNumber,
-        bankCode: reports.bankCode,
-        branchCode: reports.branchCode,
-        companyName: reports.companyName,
-        contactPersonName: reports.contactPersonName,
-        handlerId: reports.handlerId,
-        approverId: reports.approverId,
-        inquiryContent: reports.inquiryContent,
-        responseContent: reports.responseContent,
-        escalationRequired: reports.escalationRequired,
-        escalationReason: reports.escalationReason,
-        status: reports.status,
-        rejectionReason: reports.rejectionReason,
-        approvedAt: reports.approvedAt,
-        createdAt: reports.createdAt,
-        updatedAt: reports.updatedAt,
-        handlerFirstName: sql<string>`handler.first_name`,
-        handlerLastName: sql<string>`handler.last_name`,
-        handlerUsername: sql<string>`handler.username`,
-        handlerRole: sql<string>`handler.role`,
-        handlerApprovalLevel: sql<number>`handler.approval_level`,
-        handlerCreatedAt: sql<number>`handler.created_at`,
-        handlerUpdatedAt: sql<number>`handler.updated_at`,
-        approverFirstName: sql<string>`approver.first_name`,
-        approverLastName: sql<string>`approver.last_name`,
-        approverUsername: sql<string>`approver.username`,
-        approverRole: sql<string>`approver.role`,
-        approverApprovalLevel: sql<number>`approver.approval_level`,
-        approverCreatedAt: sql<number>`approver.created_at`,
-        approverUpdatedAt: sql<number>`approver.updated_at`,
+        report: reports,
+        handler: users,
+        approver: {
+          id: sql`approver.id`,
+          firstName: sql`approver.first_name`,
+          lastName: sql`approver.last_name`,
+          username: sql`approver.username`,
+          role: sql`approver.role`,
+          approvalLevel: sql`approver.approval_level`,
+          createdAt: sql`approver.created_at`,
+          updatedAt: sql`approver.updated_at`,
+        },
       })
       .from(reports)
-      .innerJoin(users.as('handler'), eq(reports.handlerId, sql`handler.id`))
-      .innerJoin(users.as('approver'), eq(reports.approverId, sql`approver.id`))
+      .innerJoin(users, eq(reports.handlerId, users.id))
+      .leftJoin(sql`users as approver`, sql`${reports.approverId} = approver.id`)
       .where(eq(reports.handlerId, userId));
 
-    const query = status ? 
-      baseQuery.where(and(eq(reports.handlerId, userId), eq(reports.status, status))) :
-      baseQuery;
+    if (status) {
+      query = query.where(and(eq(reports.handlerId, userId), eq(reports.status, status)));
+    }
 
     const result = await query.orderBy(desc(reports.createdAt));
 
     return result.map(row => ({
-      id: row.id,
-      reportNumber: row.reportNumber,
-      userNumber: row.userNumber,
-      bankCode: row.bankCode,
-      branchCode: row.branchCode,
-      companyName: row.companyName,
-      contactPersonName: row.contactPersonName,
-      handlerId: row.handlerId,
-      approverId: row.approverId,
-      inquiryContent: row.inquiryContent,
-      responseContent: row.responseContent,
-      escalationRequired: row.escalationRequired,
-      escalationReason: row.escalationReason,
-      status: row.status,
-      rejectionReason: row.rejectionReason,
-      approvedAt: row.approvedAt,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
-      handler: {
-        id: row.handlerId,
-        firstName: row.handlerFirstName,
-        lastName: row.handlerLastName,
-        username: row.handlerUsername,
-        role: row.handlerRole,
-        approvalLevel: row.handlerApprovalLevel,
-        createdAt: row.handlerCreatedAt,
-        updatedAt: row.handlerUpdatedAt,
-
-      },
-      approver: {
-        id: row.approverId,
-        firstName: row.approverFirstName,
-        lastName: row.approverLastName,
-        username: row.approverUsername,
-        role: row.approverRole,
-        approvalLevel: row.approverApprovalLevel,
-        createdAt: row.approverCreatedAt,
-        updatedAt: row.approverUpdatedAt,
-
-      },
-    } as ReportWithDetails));
+      ...row.report,
+      handler: row.handler,
+      approver: row.approver as User || null,
+    }));
   }
 
   async getReportsForApproval(approverId: string): Promise<ReportWithDetails[]> {
