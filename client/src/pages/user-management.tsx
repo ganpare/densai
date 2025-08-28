@@ -15,6 +15,8 @@ import { z } from "zod";
 import { Plus, Edit, Trash2, Users, Shield, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import Sidebar from "@/components/layout/sidebar";
+import Header from "@/components/layout/header";
 
 const userSchema = z.object({
   email: z.string().email("有効なメールアドレスを入力してください"),
@@ -176,13 +178,17 @@ export default function UserManagement() {
   };
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">ユーザー管理</h1>
-          <p className="text-muted-foreground">システムユーザーの作成・編集・削除を行います</p>
-        </div>
+    <div className="flex h-screen bg-background">
+      <Sidebar />
+      <div className="flex-1 flex flex-col lg:ml-64">
+        <Header title="ユーザー管理" />
+        <main className="flex-1 p-6 space-y-6">
+          {/* Header */}
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-2xl font-bold text-foreground">ユーザー管理</h1>
+              <p className="text-muted-foreground">システムユーザーの作成・編集・削除を行います</p>
+            </div>
         
         <Dialog open={isCreateDialogOpen || !!editingUser} onOpenChange={closeDialog}>
           <DialogTrigger asChild>
@@ -449,6 +455,8 @@ export default function UserManagement() {
           )}
         </CardContent>
       </Card>
+        </main>
+      </div>
     </div>
   );
 }
