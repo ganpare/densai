@@ -140,16 +140,17 @@ export default function ReportForm() {
           await apiRequest("PATCH", `/api/reports/${reportId}`, data);
           console.log("✅ Report updated, now submitting for approval...");
           // Then submit for approval
-          return await apiRequest("PATCH", `/api/reports/${reportId}/submit`);
+          const response = await apiRequest("PATCH", `/api/reports/${reportId}/submit`);
+          return await response.json();
         } else {
           console.log("🆕 Creating new report...");
-          // Create new report
-          const response = await apiRequest("POST", "/api/reports", data);
+          // Create new report with status "pending_approval"
+          const reportData = { ...data, status: "pending_approval" };
+          console.log("📝 Report data to submit:", reportData);
+          const response = await apiRequest("POST", "/api/reports", reportData);
           const report = await response.json();
-          console.log("✅ Report created:", report);
-          console.log("📤 Now submitting for approval...");
-          // Submit for approval
-          return await apiRequest("PATCH", `/api/reports/${report.id}/submit`);
+          console.log("✅ Report created and submitted:", report);
+          return report;
         }
       } catch (error) {
         console.error("❌ Submit mutation failed:", error);
