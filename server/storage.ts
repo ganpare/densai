@@ -16,7 +16,7 @@ import {
 } from "@shared/schema";
 import { db } from "./db";
 import { randomUUID } from "crypto";
-import { eq, desc, and, or, like, sql, count, alias } from "drizzle-orm";
+import { eq, desc, and, or, like, sql, count } from "drizzle-orm";
 
 export interface IStorage {
   // User operations (mandatory for Replit Auth)
@@ -98,7 +98,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createFinancialInstitution(institution: InsertFinancialInstitution): Promise<FinancialInstitution> {
-    const [created] = await db.insert(financialInstitutions).values(institution).returning();
+    const [created] = await db
+      .insert(financialInstitutions)
+      .values({
+        id: randomUUID(),
+        bankCode: institution.bankCode,
+        bankName: institution.bankName,
+        createdAt: Math.floor(Date.now() / 1000),
+      })
+      .returning();
     return created;
   }
 
@@ -107,7 +115,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createBranch(branch: InsertBranch): Promise<Branch> {
-    const [created] = await db.insert(branches).values(branch).returning();
+    const [created] = await db
+      .insert(branches)
+      .values({
+        id: randomUUID(),
+        institutionId: branch.institutionId,
+        branchCode: branch.branchCode,
+        branchName: branch.branchName,
+        createdAt: Math.floor(Date.now() / 1000),
+      })
+      .returning();
     return created;
   }
 
@@ -218,7 +235,7 @@ export class DatabaseStorage implements IStorage {
       })
       .from(reports)
       .innerJoin(users, eq(reports.handlerId, users.id))
-      .innerJoin(sql`users as approver`, sql`${reports.approverId} = approver.id`)
+  .leftJoin(sql`users as approver`, sql`${reports.approverId} = approver.id`)
       .where(eq(reports.id, id))
       .limit(1);
 
@@ -367,7 +384,7 @@ export class DatabaseStorage implements IStorage {
           sql`${reports.createdAt} >= ${startOfMonth}`
         )
       ),
-      db.select({ count: count() }).from(reports).where(eq(reports.escalationRequired, 1)) // SQLite boolean as integer
+  db.select({ count: count() }).from(reports).where(eq(reports.escalationRequired, true))
     ]);
 
     return {
@@ -378,8 +395,12 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async getUsersByRole(role: string): Promise<User[]> {
-    return await db.select().from(users).where(eq(users.role, role));
+  async getUsersByRole(role: string | string[]): Promise<User[]> {
+    if (Array.isArray(role)) {
+      return await db.select().from(users).where(or(...role.map(r => eq(users.role, r))));
+    } else {
+      return await db.select().from(users).where(eq(users.role, role));
+    }
   }
 
   async getAllUsers(): Promise<User[]> {

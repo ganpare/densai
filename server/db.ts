@@ -59,7 +59,7 @@ sqlite.exec(`
     company_name TEXT NOT NULL,
     contact_person_name TEXT NOT NULL,
     handler_id TEXT NOT NULL,
-    approver_id TEXT NOT NULL,
+    approver_id TEXT,
     inquiry_content TEXT NOT NULL,
     response_content TEXT NOT NULL,
     escalation_required INTEGER NOT NULL DEFAULT 0,

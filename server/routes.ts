@@ -137,8 +137,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       const validatedData = insertReportSchema.parse(req.body);
-      const report = await storage.createReport({ ...validatedData, handlerId: userId });
-      res.status(201).json(report);
+      
+      // Create report as draft first
+      const report = await storage.createReport({ 
+        ...validatedData, 
+        handlerId: userId,
+        approverId: null,  // No approver assigned at creation time
+        status: 'draft'   // Always start as draft
+      });
+      
+      // If this is a direct submission (not just draft save), change status to pending_approval
+      if (req.body._submitForApproval) {
+        const updatedReport = await storage.updateReportStatus(report.id, {
+          status: 'pending_approval'
+        });
+        res.status(201).json(updatedReport);
+      } else {
+        res.status(201).json(report);
+      }
     } catch (error) {
       if (error instanceof z.ZodError) {
         res.status(400).json({ message: "Invalid data", errors: error.errors });
