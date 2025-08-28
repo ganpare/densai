@@ -8,19 +8,25 @@ export function getSession() {
   
   return session({
     secret: "development-secret-key-for-offline-use",
-    resave: true, // 必要な変更
-    saveUninitialized: true, // 必要な変更
+    resave: true, // セッションを強制保存
+    saveUninitialized: false, // 空のセッションは保存しない
+    rolling: true, // アクセス毎にexpire時間をリセット
     cookie: {
-      httpOnly: false,
-      secure: false,
-      sameSite: false, // 最も緩い設定に変更
+      httpOnly: false, // JavaScriptからアクセス可能
+      secure: false, // HTTP環境用
+      sameSite: false, // 最も緩い設定
       maxAge: sessionTtl,
+      path: '/', // パスを明示的に指定
     },
-    name: 'sessionId', // セッション名を明示的に指定
+    name: 'connect.sid', // デフォルトのセッション名に戻す
   });
 }
 
 export async function setupAuth(app: Express) {
+  // Replitプロキシを信頼
+  app.set('trust proxy', 1);
+  
+  // セッションミドルウェア
   app.use(getSession());
 
   // Login endpoint with username/password
@@ -37,8 +43,19 @@ export async function setupAuth(app: Express) {
         // セッションに保存
         (req.session as any).userId = user.id;
         (req.session as any).user = user; // ユーザー情報も保存
+        
+        // セッション保存を強制実行
+        req.session.save((err) => {
+          if (err) {
+            console.error('Session save error:', err);
+          } else {
+            console.log('✅ Session saved successfully for user:', user.id);
+          }
+        });
+        
         console.log('Login - Session ID:', req.sessionID, 'Setting userId:', user.id);
         console.log('Session after setting:', req.session);
+        console.log('🍪 Cookie will be set with name:', 'connect.sid');
         
         res.json({ success: true, user: { ...user, password: undefined } });
       } else {
