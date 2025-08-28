@@ -35,10 +35,61 @@ npm --version
    - **デフォルトエディター**: Visual Studio Code（インストール済みの場合）
    - **改行文字の変換**: "Checkout Windows-style, commit Unix-style line endings"
 
+### SQLite のインストール
+
+#### 方法1: SQLite Tools をダウンロード（推奨）
+
+1. [SQLite公式サイト](https://www.sqlite.org/download.html)にアクセス
+2. **Precompiled Binaries for Windows** セクションから以下をダウンロード：
+   - `sqlite-tools-win32-x86-3xxxxxx.zip` または `sqlite-tools-win64-x64-3xxxxxx.zip`
+3. ダウンロードしたZIPファイルを展開
+4. 展開したフォルダを `C:\sqlite` にコピー
+5. 環境変数PATHに `C:\sqlite` を追加：
+   - Windows設定 → システム → 詳細情報 → システムの詳細設定
+   - 環境変数 → システム環境変数のPath → 編集 → 新規
+   - `C:\sqlite` を追加
+
+#### 方法2: Chocolatey を使用
+
+```powershell
+# 管理者権限でPowerShellを開いて実行
+# Chocolateyのインストール（未インストールの場合）
+Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+
+# SQLiteのインストール
+choco install sqlite
+```
+
+#### 方法3: Scoop を使用
+
+```powershell
+# Scoopのインストール（未インストールの場合）
+iwr -useb get.scoop.sh | iex
+
+# SQLiteのインストール
+scoop install sqlite
+```
+
+#### インストール確認
+
+PowerShellまたはコマンドプロンプトで確認：
+
+```powershell
+sqlite3 --version
+```
+
 ### Visual Studio Code（推奨）
 
 1. [VS Code公式サイト](https://code.visualstudio.com/)からダウンロード
 2. インストール時に「PATHに追加」をチェック
+
+#### SQLite用VS Code拡張機能
+
+VS Codeを使用する場合、以下の拡張機能を推奨：
+
+1. **SQLite Viewer** - SQLiteデータベースの表示・編集
+2. **SQLite** - SQLクエリの実行
+3. **Database Client** - 複数データベース対応
 
 ## 2. プロジェクトのセットアップ
 
