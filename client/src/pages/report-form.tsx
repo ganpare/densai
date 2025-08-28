@@ -455,9 +455,26 @@ export default function ReportForm() {
                       console.log("🖱️ Submit button CLICKED!");
                       console.log("🔒 Button disabled?", submitMutation.isPending);
                       console.log("📄 Form data:", form.getValues());
+                      console.log("🧪 Form state:", {
+                        isValid: form.formState.isValid,
+                        isSubmitting: form.formState.isSubmitting,
+                        errors: form.formState.errors
+                      });
                       e.preventDefault();
-                      const submitHandler = form.handleSubmit(onSubmit);
+                      e.stopPropagation();
+                      
+                      // 手動でフォームデータとバリデーションをチェック
+                      const formData = form.getValues();
+                      const requiredFields = ['reportNumber', 'userNumber', 'bankCode', 'branchCode', 'companyName', 'contactPersonName', 'inquiryContent', 'responseContent'];
+                      const missingFields = requiredFields.filter(field => !formData[field]);
+                      
+                      if (missingFields.length > 0) {
+                        console.error("❌ Missing required fields:", missingFields);
+                        return;
+                      }
+                      
                       console.log("🎪 Calling handleSubmit...");
+                      const submitHandler = form.handleSubmit(onSubmit);
                       submitHandler();
                     }}
                     disabled={submitMutation.isPending}
