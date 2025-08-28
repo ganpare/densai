@@ -62,7 +62,7 @@ export const reports = sqliteTable("reports", {
   companyName: text("company_name").notNull(),
   contactPersonName: text("contact_person_name").notNull(),
   handlerId: text("handler_id").notNull().references(() => users.id),
-  approverId: text("approver_id").notNull().references(() => users.id),
+  approverId: text("approver_id").references(() => users.id),
   inquiryContent: text("inquiry_content").notNull(),
   responseContent: text("response_content").notNull(),
   escalationRequired: integer("escalation_required", { mode: 'boolean' }).notNull().default(false),
@@ -128,6 +128,7 @@ export const insertBranchSchema = createInsertSchema(branches).omit({
 export const insertReportSchema = createInsertSchema(reports).omit({
   id: true,
   reportNumber: true,
+  approverId: true,
   status: true,
   approvedAt: true,
   createdAt: true,

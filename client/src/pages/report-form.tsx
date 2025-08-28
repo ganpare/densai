@@ -61,7 +61,6 @@ export default function ReportForm() {
       branchCode: "",
       companyName: "",
       contactPersonName: "",
-      approverId: "",
       inquiryContent: "",
       responseContent: "",
       escalationRequired: false,
@@ -86,7 +85,6 @@ export default function ReportForm() {
         branchCode: data.branchCode,
         companyName: data.companyName,
         contactPersonName: data.contactPersonName,
-        approverId: data.approverId,
         inquiryContent: data.inquiryContent,
         responseContent: data.responseContent,
         escalationRequired: data.escalationRequired,
@@ -95,11 +93,6 @@ export default function ReportForm() {
     }
   }, [existingReport, form]);
 
-  // Get approvers for dropdown
-  const { data: approvers = [] } = useQuery({
-    queryKey: ["/api/users", "approver"],
-    retry: false,
-  });
 
   // Save draft mutation
   const saveDraftMutation = useMutation({
@@ -329,32 +322,6 @@ export default function ReportForm() {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <FormField
-                          control={form.control}
-                          name="approverId"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>承認者 <span className="text-destructive">*</span></FormLabel>
-                              <Select onValueChange={field.onChange} value={field.value}>
-                                <FormControl>
-                                  <SelectTrigger data-testid="select-approver">
-                                    <SelectValue placeholder="選択してください" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  {(approvers as any[]).map((approver: any) => (
-                                    <SelectItem key={approver.id} value={approver.id}>
-                                      {approver.firstName} {approver.lastName}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
                       
                       <FormField
                         control={form.control}
