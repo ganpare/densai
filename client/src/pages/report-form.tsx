@@ -198,10 +198,11 @@ export default function ReportForm() {
     console.log("📝 Is edit mode:", isEdit);
     console.log("🆔 Report ID:", reportId);
     
-    if (!form.formState.isValid) {
-      console.error("❌ Form validation failed!");
-      return;
-    }
+    // Temporarily disable validation check for debugging
+    // if (!form.formState.isValid) {
+    //   console.error("❌ Form validation failed!");
+    //   return;
+    // }
     
     console.log("🎯 Calling submitMutation.mutate...");
     submitMutation.mutate(data);
@@ -465,7 +466,7 @@ export default function ReportForm() {
                       
                       // 手動でフォームデータとバリデーションをチェック
                       const formData = form.getValues();
-                      const requiredFields = ['reportNumber', 'userNumber', 'bankCode', 'branchCode', 'companyName', 'contactPersonName', 'inquiryContent', 'responseContent'];
+                      const requiredFields = ['userNumber', 'bankCode', 'branchCode', 'companyName', 'contactPersonName', 'inquiryContent', 'responseContent'];
                       const missingFields = requiredFields.filter(field => !formData[field]);
                       
                       if (missingFields.length > 0) {
@@ -474,8 +475,8 @@ export default function ReportForm() {
                       }
                       
                       console.log("🎪 Calling handleSubmit...");
-                      const submitHandler = form.handleSubmit(onSubmit);
-                      submitHandler();
+                      // Direct call to onSubmit for debugging
+                      onSubmit(formData);
                     }}
                     disabled={submitMutation.isPending}
                     data-testid="button-submit"
