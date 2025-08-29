@@ -55,6 +55,7 @@ export default function ReportForm() {
 
   const form = useForm<ReportFormData>({
     resolver: zodResolver(reportFormSchema),
+    mode: "onChange",
     defaultValues: {
       userNumber: "",
       bankCode: "",
@@ -65,6 +66,7 @@ export default function ReportForm() {
       responseContent: "",
       escalationRequired: false,
       escalationReason: "",
+      handlerId: user?.id || "",
     },
   });
 
@@ -132,28 +134,22 @@ export default function ReportForm() {
   // Submit for approval mutation
   const submitMutation = useMutation({
     mutationFn: async (data: ReportFormData) => {
-      console.log("🔄 Starting submit mutation...", { reportId, data });
-      try {
+    try {
         if (reportId) {
-          console.log("📝 Updating existing report...");
           // Update existing report first
           await apiRequest("PATCH", `/api/reports/${reportId}`, data);
-          console.log("✅ Report updated, now submitting for approval...");
           // Then submit for approval
           const response = await apiRequest("PATCH", `/api/reports/${reportId}/submit`);
           return await response.json();
         } else {
-          console.log("🆕 Creating new report...");
-          // Create new report with status "pending_approval"
-          const reportData = { ...data, status: "pending_approval" };
-          console.log("📝 Report data to submit:", reportData);
-          const response = await apiRequest("POST", "/api/reports", reportData);
-          const report = await response.json();
-          console.log("✅ Report created and submitted:", report);
-          return report;
+      // Create new report first (server defaults to draft)
+      const response = await apiRequest("POST", "/api/reports", data);
+      const report = await response.json();
+      // Then submit for approval to set status to pending_approval
+      await apiRequest("PATCH", `/api/reports/${report.id}/submit`);
+      return report;
         }
       } catch (error) {
-        console.error("❌ Submit mutation failed:", error);
         throw error;
       }
     },
@@ -191,21 +187,30 @@ export default function ReportForm() {
   };
 
   const onSubmit = (data: ReportFormData) => {
-    console.log("🚀 onSubmit called!", data);
-    console.log("📋 Form errors:", form.formState.errors);
-    console.log("✅ Form is valid:", form.formState.isValid);
-    console.log("👤 User authenticated:", user);
-    console.log("📝 Is edit mode:", isEdit);
-    console.log("🆔 Report ID:", reportId);
+    console.log("🚀 onSubmit called with data:", data);
+    console.log("🔄 submitMutation state:", {
+      isPending: submitMutation.isPending,
+      isError: submitMutation.isError,
+      error: submitMutation.error
+    });
     
-    // Temporarily disable validation check for debugging
-    // if (!form.formState.isValid) {
-    //   console.error("❌ Form validation failed!");
-    //   return;
-    // }
+    // Ensure we have all required fields
+    const requiredData = {
+      userNumber: data.userNumber || "",
+      bankCode: data.bankCode || "",
+      branchCode: data.branchCode || "",
+      companyName: data.companyName || "",
+      contactPersonName: data.contactPersonName || "",
+      inquiryContent: data.inquiryContent || "",
+      responseContent: data.responseContent || "",
+      escalationRequired: data.escalationRequired || false,
+      escalationReason: data.escalationReason || "",
+      handlerId: user?.id || "",
+      _submitForApproval: true  // Flag to indicate this is for approval submission
+    };
     
-    console.log("🎯 Calling submitMutation.mutate...");
-    submitMutation.mutate(data);
+    console.log("📝 Processed data:", requiredData);
+    submitMutation.mutate(requiredData);
   };
 
   const escalationRequired = form.watch("escalationRequired");
@@ -240,7 +245,7 @@ export default function ReportForm() {
             </div>
 
             <Form {...form}>
-              <form className="space-y-6">
+              <form className="space-y-6" onSubmit={form.handleSubmit(onSubmit)}>
                 {/* Basic Information */}
                 <Card>
                   <CardHeader>
@@ -451,33 +456,7 @@ export default function ReportForm() {
                     {saveDraftMutation.isPending ? "保存中..." : "下書き保存"}
                   </Button>
                   <Button 
-                    type="button" 
-                    onClick={(e) => {
-                      console.log("🖱️ Submit button CLICKED!");
-                      console.log("🔒 Button disabled?", submitMutation.isPending);
-                      console.log("📄 Form data:", form.getValues());
-                      console.log("🧪 Form state:", {
-                        isValid: form.formState.isValid,
-                        isSubmitting: form.formState.isSubmitting,
-                        errors: form.formState.errors
-                      });
-                      e.preventDefault();
-                      e.stopPropagation();
-                      
-                      // 手動でフォームデータとバリデーションをチェック
-                      const formData = form.getValues();
-                      const requiredFields = ['userNumber', 'bankCode', 'branchCode', 'companyName', 'contactPersonName', 'inquiryContent', 'responseContent'];
-                      const missingFields = requiredFields.filter(field => !formData[field]);
-                      
-                      if (missingFields.length > 0) {
-                        console.error("❌ Missing required fields:", missingFields);
-                        return;
-                      }
-                      
-                      console.log("🎪 Calling handleSubmit...");
-                      // Direct call to onSubmit for debugging
-                      onSubmit(formData);
-                    }}
+                    type="submit"
                     disabled={submitMutation.isPending}
                     data-testid="button-submit"
                   >

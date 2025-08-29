@@ -1,111 +1,149 @@
-import Database from 'better-sqlite3';
-import { drizzle } from 'drizzle-orm/better-sqlite3';
+import { neon } from '@neondatabase/serverless';
+import { drizzle } from 'drizzle-orm/neon-http';
 import * as schema from "@shared/schema";
-import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
-import path from 'path';
 
-const sqlite = new Database('database.sqlite');
-export const db = drizzle(sqlite, { schema });
+const sql = neon(process.env.DATABASE_URL!);
+export const db = drizzle(sql, { schema });
 
-// Initialize tables if they don't exist
-sqlite.pragma('journal_mode = WAL');
-
-// Create tables manually since we're using SQLite
-sqlite.exec(`
-  CREATE TABLE IF NOT EXISTS sessions (
-    sid TEXT PRIMARY KEY,
-    sess TEXT NOT NULL,
-    expire INTEGER NOT NULL
-  );
-  
-  CREATE INDEX IF NOT EXISTS IDX_session_expire ON sessions(expire);
-  
-  CREATE TABLE IF NOT EXISTS users (
-    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
-    username TEXT NOT NULL UNIQUE,
-    password TEXT NOT NULL,
-    email TEXT UNIQUE,
-    first_name TEXT,
-    last_name TEXT,
-    profile_image_url TEXT,
-    role TEXT NOT NULL DEFAULT 'creator',
-    approval_level INTEGER DEFAULT 1,
-    created_at INTEGER DEFAULT (unixepoch()),
-    updated_at INTEGER DEFAULT (unixepoch())
-  );
-  
-  CREATE TABLE IF NOT EXISTS financial_institutions (
-    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
-    bank_code TEXT NOT NULL UNIQUE,
-    bank_name TEXT NOT NULL,
-    created_at INTEGER DEFAULT (unixepoch())
-  );
-  
-  CREATE TABLE IF NOT EXISTS branches (
-    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
-    institution_id TEXT NOT NULL,
-    branch_code TEXT NOT NULL,
-    branch_name TEXT NOT NULL,
-    created_at INTEGER DEFAULT (unixepoch()),
-    FOREIGN KEY(institution_id) REFERENCES financial_institutions(id)
-  );
-  
-  CREATE TABLE IF NOT EXISTS reports (
-    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
-    report_number TEXT NOT NULL UNIQUE,
-    user_number TEXT NOT NULL,
-    bank_code TEXT NOT NULL,
-    branch_code TEXT NOT NULL,
-    company_name TEXT NOT NULL,
-    contact_person_name TEXT NOT NULL,
-    handler_id TEXT NOT NULL,
-    approver_id TEXT NOT NULL,
-    inquiry_content TEXT NOT NULL,
-    response_content TEXT NOT NULL,
-    escalation_required INTEGER NOT NULL DEFAULT 0,
-    escalation_reason TEXT,
-    status TEXT NOT NULL DEFAULT 'draft',
-    rejection_reason TEXT,
-    approved_at INTEGER,
-    created_at INTEGER DEFAULT (unixepoch()),
-    updated_at INTEGER DEFAULT (unixepoch()),
-    FOREIGN KEY(handler_id) REFERENCES users(id),
-    FOREIGN KEY(approver_id) REFERENCES users(id)
-  );
-`);
-
-// Insert default users if none exist
-const userCount = sqlite.prepare('SELECT COUNT(*) as count FROM users').get() as { count: number };
-if (userCount.count === 0) {
-  const currentTimestamp = Math.floor(Date.now() / 1000);
-  
-  // パスワードは簡単な例として平文で保存（本番では必ずハッシュ化）
-  sqlite.prepare(`
-    INSERT INTO users (id, username, password, email, first_name, last_name, role, approval_level, created_at, updated_at) VALUES 
-    ('creator1', 'tanaka', 'password123', 'creator@example.com', '太郎', '田中', 'creator', 1, ${currentTimestamp}, ${currentTimestamp}),
-    ('creator2', 'sato', 'password123', 'creator2@example.com', '花子', '佐藤', 'creator', 1, ${currentTimestamp}, ${currentTimestamp}),
-    ('approver1', 'suzuki', 'password123', 'approver@example.com', '次郎', '鈴木', 'approver', 2, ${currentTimestamp}, ${currentTimestamp}),
-    ('approver2', 'takahashi', 'password123', 'approver2@example.com', '美咲', '高橋', 'approver', 3, ${currentTimestamp}, ${currentTimestamp}),
-    ('admin1', 'tamura', 'password123', 'admin@example.com', '健太', '田村', 'admin', 5, ${currentTimestamp}, ${currentTimestamp})
-  `).run();
-  
-  // Insert sample financial institutions
-  sqlite.prepare(`
-    INSERT INTO financial_institutions (bank_code, bank_name) VALUES 
-    ('0001', 'みずほ銀行'),
-    ('0009', '三井住友銀行'),
-    ('0005', '三菱UFJ銀行')
-  `).run();
-  
-  const banks = sqlite.prepare('SELECT id, bank_code FROM financial_institutions').all() as Array<{id: string, bank_code: string}>;
-  
-  // Insert sample branches
-  for (const bank of banks) {
-    sqlite.prepare(`
-      INSERT INTO branches (institution_id, branch_code, branch_name) VALUES 
-      (?, '001', '本店'),
-      (?, '002', '支店'),
-      (?, '003', '営業部')
-    `).run(bank.id, bank.id, bank.id);
+// Initialize database with schema - PostgreSQL
+async function initializeDatabase() {
+  try {
+    console.log('🔄 Initializing database...');
+    
+    // Initialize database if needed (using drizzle push)
+    const { exec } = await import('child_process');
+    const { promisify } = await import('util');
+    const execAsync = promisify(exec);
+    
+    try {
+      await execAsync('npm run db:push');
+      console.log('✅ Database schema initialized');
+    } catch (error) {
+      console.log('ℹ️ Database schema may already exist');
+    }
+    
+    // Check if users exist and insert default data if needed
+    const users = await db.select().from(schema.users);
+    if (users.length === 0) {
+      const currentTimestamp = Math.floor(Date.now() / 1000);
+      
+      // Insert default users
+      await db.insert(schema.users).values([
+        {
+          id: 'creator1',
+          username: 'tanaka',
+          password: 'password123',
+          firstName: '太郎',
+          lastName: '田中',
+          role: 'creator',
+          approvalLevel: 1,
+          createdAt: currentTimestamp,
+          updatedAt: currentTimestamp,
+        },
+        {
+          id: 'creator2',
+          username: 'sato',
+          password: 'password123',
+          firstName: '花子',
+          lastName: '佐藤',
+          role: 'creator',
+          approvalLevel: 1,
+          createdAt: currentTimestamp,
+          updatedAt: currentTimestamp,
+        },
+        {
+          id: 'approver1',
+          username: 'suzuki',
+          password: 'password123',
+          firstName: '次郎',
+          lastName: '鈴木',
+          role: 'approver',
+          approvalLevel: 2,
+          createdAt: currentTimestamp,
+          updatedAt: currentTimestamp,
+        },
+        {
+          id: 'approver2',
+          username: 'takahashi',
+          password: 'password123',
+          firstName: '美咲',
+          lastName: '高橋',
+          role: 'approver',
+          approvalLevel: 3,
+          createdAt: currentTimestamp,
+          updatedAt: currentTimestamp,
+        },
+        {
+          id: 'admin1',
+          username: 'tamura',
+          password: 'password123',
+          firstName: '健太',
+          lastName: '田村',
+          role: 'admin',
+          approvalLevel: 5,
+          createdAt: currentTimestamp,
+          updatedAt: currentTimestamp,
+        }
+      ]);
+      
+      // Insert sample financial institutions
+      const institutions = await db.insert(schema.financialInstitutions).values([
+        {
+          id: 'inst1',
+          bankCode: '0001',
+          bankName: 'みずほ銀行',
+          createdAt: currentTimestamp,
+        },
+        {
+          id: 'inst2',
+          bankCode: '0009',
+          bankName: '三井住友銀行',
+          createdAt: currentTimestamp,
+        },
+        {
+          id: 'inst3',
+          bankCode: '0005',
+          bankName: '三菱UFJ銀行',
+          createdAt: currentTimestamp,
+        }
+      ]).returning();
+      
+      // Insert sample branches
+      const branches = [];
+      for (const inst of institutions) {
+        branches.push(
+          {
+            id: `${inst.id}_branch1`,
+            institutionId: inst.id,
+            branchCode: '001',
+            branchName: '本店',
+            createdAt: currentTimestamp,
+          },
+          {
+            id: `${inst.id}_branch2`,
+            institutionId: inst.id,
+            branchCode: '002',
+            branchName: '支店',
+            createdAt: currentTimestamp,
+          },
+          {
+            id: `${inst.id}_branch3`,
+            institutionId: inst.id,
+            branchCode: '003',
+            branchName: '営業部',
+            createdAt: currentTimestamp,
+          }
+        );
+      }
+      
+      await db.insert(schema.branches).values(branches);
+      
+      console.log('✅ Default data inserted');
+    }
+  } catch (error) {
+    console.error('❌ Database initialization error:', error);
   }
 }
+
+// Initialize on module load
+initializeDatabase();
