@@ -39,7 +39,7 @@ export interface IStorage {
   getReportsByUser(userId: string, status?: string): Promise<ReportWithDetails[]>;
   getReportsForApproval(approverId: string): Promise<ReportWithDetails[]>;
   getAllReports(limit?: number, offset?: number): Promise<ReportWithDetails[]>;
-  searchReports(query: string): Promise<ReportWithDetails[]>;
+  searchReports(query: string, userId?: string): Promise<ReportWithDetails[]>;
   
   // Statistics
   getReportStatistics(): Promise<{
@@ -249,9 +249,41 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getReportsByUser(userId: string, status?: string): Promise<ReportWithDetails[]> {
-    // Simplified approach - just return empty array for now
-    // This will allow the system to work while we can add reports later
-    return [];
+    console.log('getReportsByUser called with userId:', userId, 'status:', status);
+    
+    let whereCondition = eq(reports.handlerId, userId);
+    
+    // Add status filter if provided
+    if (status && status !== 'all') {
+      whereCondition = and(whereCondition, eq(reports.status, status));
+    }
+    
+    const result = await db
+      .select({
+        report: reports,
+        handler: users,
+        approver: {
+          id: sql`approver.id`,
+          firstName: sql`approver.first_name`,
+          lastName: sql`approver.last_name`,
+          roles: sql`approver.roles`,
+          createdAt: sql`approver.created_at`,
+          updatedAt: sql`approver.updated_at`,
+        },
+      })
+      .from(reports)
+      .innerJoin(users, eq(reports.handlerId, users.id))
+      .leftJoin(sql`users as approver`, sql`${reports.approverId} = approver.id`)
+      .where(whereCondition)
+      .orderBy(desc(reports.createdAt));
+
+    console.log('getReportsByUser result count:', result.length);
+
+    return result.map(row => ({
+      ...row.report,
+      handler: row.handler,
+      approver: row.approver as User,
+    }));
   }
 
   async getReportsForApproval(approverId: string): Promise<ReportWithDetails[]> {
@@ -308,17 +340,30 @@ export class DatabaseStorage implements IStorage {
     }));
   }
 
-  async searchReports(query: string): Promise<ReportWithDetails[]> {
+  async searchReports(query: string, userId?: string): Promise<ReportWithDetails[]> {
+    console.log('searchReports called with query:', query, 'userId:', userId);
+    
+    let whereCondition = or(
+      like(reports.reportNumber, `%${query}%`),
+      like(reports.companyName, `%${query}%`),
+      like(reports.contactPersonName, `%${query}%`),
+      like(reports.inquiryContent, `%${query}%`),
+      like(reports.responseContent, `%${query}%`)
+    );
+
+    // If userId is provided, limit search to that user's reports
+    if (userId) {
+      whereCondition = and(whereCondition, eq(reports.handlerId, userId));
+    }
+
     const result = await db
       .select({
         report: reports,
         handler: users,
         approver: {
           id: sql`approver.id`,
-
           firstName: sql`approver.first_name`,
           lastName: sql`approver.last_name`,
-
           roles: sql`approver.roles`,
           createdAt: sql`approver.created_at`,
           updatedAt: sql`approver.updated_at`,
@@ -326,16 +371,11 @@ export class DatabaseStorage implements IStorage {
       })
       .from(reports)
       .innerJoin(users, eq(reports.handlerId, users.id))
-      .innerJoin(sql`users as approver`, sql`${reports.approverId} = approver.id`)
-      .where(
-        or(
-          like(reports.reportNumber, `%${query}%`),
-          like(reports.companyName, `%${query}%`),
-          like(reports.contactPersonName, `%${query}%`),
-          like(reports.inquiryContent, `%${query}%`)
-        )
-      )
+      .leftJoin(sql`users as approver`, sql`${reports.approverId} = approver.id`)
+      .where(whereCondition)
       .orderBy(desc(reports.createdAt));
+
+    console.log('searchReports result count:', result.length);
 
     return result.map(row => ({
       ...row.report,

@@ -210,8 +210,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { status, search, limit, offset } = req.query;
 
       if (search) {
-        reports = await storage.searchReports(search as string);
         console.log('GET /api/reports - search branch');
+        // For search, pass userId only if user is not an approver (approvers can search all reports)
+        reports = await storage.searchReports(search as string, isApprover ? undefined : userId);
       } else if (isApprover) {
         console.log('GET /api/reports - approver branch');
         reports = await storage.getReportsForApproval(userId);
@@ -508,6 +509,169 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Test PDF error:", error);
       res.status(500).json({ message: "PDF test failed", error: error.message });
+    }
+  });
+
+  // Get available printers
+  app.get('/api/printers', isAuthenticated, async (req: any, res) => {
+    try {
+      const { exec } = require('child_process');
+      const util = require('util');
+      const execPromise = util.promisify(exec);
+
+      let printers = [];
+      
+      // Try to get printers based on OS
+      try {
+        if (process.platform === 'win32') {
+          // Windows: Use wmic to get printers
+          const { stdout } = await execPromise('wmic printer get name,status /format:csv');
+          const lines = stdout.split('\n').filter(line => line.trim() && !line.startsWith('Node'));
+          printers = lines.map((line, index) => {
+            const parts = line.split(',');
+            const name = parts[1]?.trim();
+            const status = parts[2]?.trim();
+            return name ? {
+              id: `printer_${index}`,
+              name: name,
+              status: status || 'Unknown'
+            } : null;
+          }).filter(Boolean);
+        } else {
+          // Linux/Mac: Use lpstat to get printers
+          const { stdout } = await execPromise('lpstat -p 2>/dev/null || echo "No printers found"');
+          const lines = stdout.split('\n').filter(line => line.startsWith('printer '));
+          printers = lines.map((line, index) => {
+            const match = line.match(/printer (\S+)/);
+            return match ? {
+              id: `printer_${index}`,
+              name: match[1],
+              status: line.includes('disabled') ? 'Disabled' : 'Ready'
+            } : null;
+          }).filter(Boolean);
+        }
+      } catch (error) {
+        console.log('Could not get system printers, using default list');
+      }
+
+      // If no system printers found, provide default/sample printers
+      if (printers.length === 0) {
+        printers = [
+          { id: "default_printer", name: "既定のプリンター", status: "Ready" },
+          { id: "main_office_01", name: "本店_金庫連携プリンター_01", status: "Ready" },
+          { id: "branch_office_02", name: "支店_金庫連携プリンター_02", status: "Ready" },
+          { id: "headquarters_03", name: "本部_金庫連携プリンター_03", status: "Ready" },
+        ];
+      }
+
+      res.json({ success: true, printers });
+    } catch (error) {
+      console.error("Error fetching printers:", error);
+      res.status(500).json({ message: "Failed to fetch printers" });
+    }
+  });
+
+  // Print report to specified printer
+  app.post('/api/reports/:id/print', isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { printerId, printerName } = req.body;
+      
+      if (!printerId || !printerName) {
+        return res.status(400).json({ message: "Printer ID and name are required" });
+      }
+
+      const report = await storage.getReport(id);
+      
+      if (!report) {
+        return res.status(404).json({ message: "Report not found" });
+      }
+
+      if (report.status !== 'approved') {
+        return res.status(400).json({ message: "Only approved reports can be printed" });
+      }
+
+      // Generate temporary PDF file for printing
+      const fs = require('fs').promises;
+      const path = require('path');
+      const { exec } = require('child_process');
+      const util = require('util');
+      const execPromise = util.promisify(exec);
+      
+      // Create a simple text file for printing (in real implementation, you'd generate a proper PDF)
+      const printContent = `
+電子債権問い合わせ対応報告書
+
+報告書番号: ${report.reportNumber}
+ユーザー番号: ${report.userNumber}
+金庫コード: ${report.bankCode}
+支店コード: ${report.branchCode}
+企業名: ${report.companyName}
+連絡者: ${report.contactPersonName}
+
+問い合わせ内容:
+${report.inquiryContent}
+
+回答内容:
+${report.responseContent}
+
+${report.escalationRequired ? `エスカレーション理由: ${report.escalationReason}` : ''}
+
+作成者: ${report.handler.lastName} ${report.handler.firstName}
+承認者: ${report.approver ? `${report.approver.lastName} ${report.approver.firstName}` : '未設定'}
+承認日時: ${report.approvedAt ? new Date(report.approvedAt * 1000).toLocaleString('ja-JP') : '未承認'}
+`;
+
+      const tempDir = require('os').tmpdir();
+      const tempFile = path.join(tempDir, `report_${report.id}.txt`);
+      
+      try {
+        await fs.writeFile(tempFile, printContent, 'utf8');
+        
+        // Print based on OS
+        if (process.platform === 'win32') {
+          // Windows: Use notepad to print
+          await execPromise(`notepad /p "${tempFile}"`);
+        } else {
+          // Linux/Mac: Use lp command
+          if (printerId === 'default_printer') {
+            await execPromise(`lp "${tempFile}"`);
+          } else {
+            await execPromise(`lp -d "${printerName}" "${tempFile}"`);
+          }
+        }
+        
+        // Clean up temp file
+        setTimeout(async () => {
+          try {
+            await fs.unlink(tempFile);
+          } catch (err) {
+            console.log('Could not delete temp file:', err.message);
+          }
+        }, 5000);
+        
+        console.log(`Report ${report.id} printed to ${printerName}`);
+        res.json({ 
+          success: true, 
+          message: `報告書を${printerName}で印刷しました`,
+          printerId,
+          printerName
+        });
+        
+      } catch (printError) {
+        console.error('Print error:', printError);
+        // Clean up temp file on error
+        try {
+          await fs.unlink(tempFile);
+        } catch (err) {
+          // Ignore cleanup errors
+        }
+        res.status(500).json({ message: "印刷に失敗しました: " + printError.message });
+      }
+      
+    } catch (error) {
+      console.error("Error printing report:", error);
+      res.status(500).json({ message: "Failed to print report" });
     }
   });
 

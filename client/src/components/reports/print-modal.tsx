@@ -21,12 +21,17 @@ export default function PrintModal({ reportId, onClose }: PrintModalProps) {
   const [printOption, setPrintOption] = useState("pdf");
   const [selectedPrinter, setSelectedPrinter] = useState("");
 
-  // Available printers (in a real implementation, this would come from an API)
-  const printers = [
-    { id: "main_office_01", name: "本店_金庫連携プリンター_01" },
-    { id: "branch_office_02", name: "支店_金庫連携プリンター_02" },
-    { id: "headquarters_03", name: "本部_金庫連携プリンター_03" },
-  ];
+  // Fetch available printers from API
+  const { data: printersData = { printers: [] }, isLoading: printersLoading } = useQuery({
+    queryKey: ["/api/printers"],
+    queryFn: async () => {
+      const response = await apiRequest("GET", "/api/printers");
+      return response.json();
+    },
+    retry: false,
+  });
+
+  const printers = printersData.printers || [];
 
   // PDF generation mutation
   const generatePdfMutation = useMutation({
@@ -67,12 +72,19 @@ export default function PrintModal({ reportId, onClose }: PrintModalProps) {
     },
   });
 
-  // Printer execution mutation (placeholder)
+  // Printer execution mutation
   const printMutation = useMutation({
     mutationFn: async (printerId: string) => {
-      // TODO: Implement actual printer integration
-      // This would integrate with the electronic document system
-      return new Promise(resolve => setTimeout(resolve, 1000));
+      const selectedPrinterData = printers.find(p => p.id === printerId);
+      if (!selectedPrinterData) {
+        throw new Error("Selected printer not found");
+      }
+
+      const response = await apiRequest("POST", `/api/reports/${reportId}/print`, {
+        printerId: printerId,
+        printerName: selectedPrinterData.name,
+      });
+      return response.json();
     },
     onSuccess: () => {
       toast({
@@ -229,11 +241,21 @@ export default function PrintModal({ reportId, onClose }: PrintModalProps) {
                   <SelectValue placeholder="プリンターを選択してください" />
                 </SelectTrigger>
                 <SelectContent>
-                  {printers.map((printer) => (
-                    <SelectItem key={printer.id} value={printer.id}>
-                      {printer.name}
+                  {printersLoading ? (
+                    <SelectItem value="loading" disabled>
+                      プリンター読み込み中...
                     </SelectItem>
-                  ))}
+                  ) : printers.length === 0 ? (
+                    <SelectItem value="none" disabled>
+                      利用可能なプリンターがありません
+                    </SelectItem>
+                  ) : (
+                    printers.map((printer) => (
+                      <SelectItem key={printer.id} value={printer.id}>
+                        {printer.name} {printer.status && `(${printer.status})`}
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
             </div>
