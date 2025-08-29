@@ -13,6 +13,7 @@ import Approval from "@/pages/approval";
 import History from "@/pages/history";
 import UserManagement from "@/pages/user-management";
 import Settings from "@/pages/settings";
+import UserSwitcherPage from "@/pages/user-switcher-page";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -41,6 +42,7 @@ function Router() {
           <Route path="/history" component={History} />
           <Route path="/settings" component={Settings} />
           <Route path="/users" component={UserManagement} />
+          <Route path="/user-switcher" component={UserSwitcherPage} />
         </>
       )}
       <Route component={NotFound} />

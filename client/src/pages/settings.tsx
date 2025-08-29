@@ -18,6 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import Sidebar from "@/components/layout/sidebar";
 import Header from "@/components/layout/header";
+import UserSwitcher from "@/components/user-switcher";
 
 // プロファイル更新スキーマ
 const profileSchema = z.object({
@@ -473,6 +474,22 @@ export default function Settings() {
                   <p>• バックアップ機能準備中</p>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* ユーザー切り替え（テスト用） */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <User className="h-5 w-5" />
+                ユーザー切り替え（テスト用）
+              </CardTitle>
+              <CardDescription>
+                開発・テスト用のユーザー切り替え機能
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <UserSwitcher />
             </CardContent>
           </Card>
 

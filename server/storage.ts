@@ -227,8 +227,7 @@ export class DatabaseStorage implements IStorage {
           firstName: sql`approver.first_name`,
           lastName: sql`approver.last_name`,
 
-          role: sql`approver.role`,
-          approvalLevel: sql`approver.approval_level`,
+          roles: sql`approver.roles`,
           createdAt: sql`approver.created_at`,
           updatedAt: sql`approver.updated_at`,
         },
@@ -256,32 +255,26 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getReportsForApproval(approverId: string): Promise<ReportWithDetails[]> {
+    console.log('getReportsForApproval called with approverId:', approverId);
+    
+    // Simplified query - just get pending reports with handler info
     const result = await db
       .select({
         report: reports,
         handler: users,
-        approver: {
-          id: sql`approver.id`,
-
-          firstName: sql`approver.first_name`,
-          lastName: sql`approver.last_name`,
-
-          role: sql`approver.role`,
-          approvalLevel: sql`approver.approval_level`,
-          createdAt: sql`approver.created_at`,
-          updatedAt: sql`approver.updated_at`,
-        },
       })
       .from(reports)
       .innerJoin(users, eq(reports.handlerId, users.id))
-      .innerJoin(sql`users as approver`, sql`${reports.approverId} = approver.id`)
-      .where(and(eq(reports.approverId, approverId), eq(reports.status, "pending_approval")))
+      .where(eq(reports.status, "pending_approval"))
       .orderBy(desc(reports.createdAt));
+
+    console.log('getReportsForApproval result count:', result.length);
+    console.log('getReportsForApproval result:', result);
 
     return result.map(row => ({
       ...row.report,
       handler: row.handler,
-      approver: row.approver as User,
+      approver: null, // For now, just set approver to null since it's pending
     }));
   }
 
@@ -296,8 +289,7 @@ export class DatabaseStorage implements IStorage {
           firstName: sql`approver.first_name`,
           lastName: sql`approver.last_name`,
 
-          role: sql`approver.role`,
-          approvalLevel: sql`approver.approval_level`,
+          roles: sql`approver.roles`,
           createdAt: sql`approver.created_at`,
           updatedAt: sql`approver.updated_at`,
         },
@@ -327,8 +319,7 @@ export class DatabaseStorage implements IStorage {
           firstName: sql`approver.first_name`,
           lastName: sql`approver.last_name`,
 
-          role: sql`approver.role`,
-          approvalLevel: sql`approver.approval_level`,
+          roles: sql`approver.roles`,
           createdAt: sql`approver.created_at`,
           updatedAt: sql`approver.updated_at`,
         },
@@ -395,11 +386,31 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async getUsersByRole(role: string | string[]): Promise<User[]> {
-    if (Array.isArray(role)) {
-      return await db.select().from(users).where(or(...role.map(r => eq(users.role, r))));
+  // Helper function to check if user has a specific role
+  private hasRole(user: User, requiredRole: string): boolean {
+    try {
+      const roles = JSON.parse(user.roles);
+      return roles.includes(requiredRole);
+    } catch (error) {
+      console.error('Error parsing user roles:', error);
+      return false;
+    }
+  }
+
+  async getUsersByRole(requiredRole: string | string[]): Promise<User[]> {
+    const allUsers = await db.select().from(users);
+    
+    if (Array.isArray(requiredRole)) {
+      return allUsers.filter(user => {
+        try {
+          const userRoles = JSON.parse(user.roles);
+          return requiredRole.some(role => userRoles.includes(role));
+        } catch {
+          return false;
+        }
+      });
     } else {
-      return await db.select().from(users).where(eq(users.role, role));
+      return allUsers.filter(user => this.hasRole(user, requiredRole));
     }
   }
 

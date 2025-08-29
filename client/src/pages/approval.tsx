@@ -41,7 +41,11 @@ export default function Approval() {
   }, [isAuthenticated, authLoading, toast]);
 
   const { data: pendingReports = [], isLoading } = useQuery<ReportWithDetails[]>({
-    queryKey: ["/api/reports", "pending"],
+    queryKey: ["/api/reports"],
+    queryFn: async () => {
+      const response = await apiRequest("GET", "/api/reports");
+      return response.json();
+    },
     retry: false,
   });
 

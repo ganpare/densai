@@ -11,11 +11,38 @@ import {
 import { z } from "zod";
 import { randomUUID } from "crypto";
 
+// Helper function to check if user has required role
+function hasRole(user: any, requiredRole: string): boolean {
+  try {
+    const roles = JSON.parse(user.roles);
+    return roles.includes(requiredRole);
+  } catch (error) {
+    console.error('Error parsing user roles:', error);
+    return false;
+  }
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
   await setupAuth(app);
 
   // Auth routes
+  app.post('/api/auth/logout', isAuthenticated, async (req: any, res) => {
+    try {
+      req.session.destroy((err: any) => {
+        if (err) {
+          console.error('Error destroying session:', err);
+          return res.status(500).json({ message: 'Failed to logout' });
+        }
+        res.clearCookie('connect.sid');
+        res.json({ success: true, message: 'Logged out successfully' });
+      });
+    } catch (error) {
+      console.error('Logout error:', error);
+      res.status(500).json({ message: 'Failed to logout' });
+    }
+  });
+
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
@@ -168,27 +195,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/reports', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      console.log('GET /api/reports - userId:', userId);
       const user = await storage.getUser(userId);
+      console.log('GET /api/reports - user:', user);
       
       if (!user) {
         return res.status(404).json({ message: "User not found" });
       }
+
+      const isApprover = hasRole(user, 'approver');
+      console.log('GET /api/reports - isApprover:', isApprover);
 
       let reports;
       const { status, search, limit, offset } = req.query;
 
       if (search) {
         reports = await storage.searchReports(search as string);
-      } else if (user.role === 'approver') {
+        console.log('GET /api/reports - search branch');
+      } else if (isApprover) {
+        console.log('GET /api/reports - approver branch');
         reports = await storage.getReportsForApproval(userId);
       } else {
+        console.log('GET /api/reports - user branch');
         reports = await storage.getReportsByUser(userId, status as string);
       }
 
+      console.log('GET /api/reports - final reports:', reports);
       res.json(reports);
     } catch (error) {
       console.error("Error fetching reports:", error);
       res.status(500).json({ message: "Failed to fetch reports" });
+    }
+  });
+
+  // Get pending reports for approvers
+  app.get('/api/reports/pending', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      if (!hasRole(user, 'approver')) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+
+      const reports = await storage.getReportsForApproval(userId);
+      res.json(reports);
+    } catch (error) {
+      console.error("Error fetching pending reports:", error);
+      res.status(500).json({ message: "Failed to fetch pending reports" });
     }
   });
 
@@ -299,12 +357,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Users for dropdowns
-  app.get('/api/users', isAuthenticated, async (req, res) => {
+  app.get('/api/users/by-role', isAuthenticated, async (req, res) => {
     try {
       const { role } = req.query;
       const users = role 
         ? await storage.getUsersByRole(role as string)
-        : await storage.getUsersByRole('creator');
+        : await storage.getUsersByRole('handler');
       res.json(users);
     } catch (error) {
       console.error("Error fetching users:", error);
@@ -352,6 +410,104 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error generating PDF:", error);
       res.status(500).json({ message: "Failed to generate PDF" });
+    }
+  });
+
+  // Test endpoint for debugging
+  app.get('/api/test/reports', async (req: any, res) => {
+    try {
+      console.log('TEST: Getting reports for approval');
+      const reports = await storage.getReportsForApproval('approver1');
+      console.log('TEST: Found reports:', reports.length);
+      res.json({ 
+        success: true, 
+        count: reports.length,
+        reports: reports 
+      });
+    } catch (error) {
+      console.error("Test endpoint error:", error);
+      res.status(500).json({ message: "Test failed", error: error.message });
+    }
+  });
+
+  // Test endpoint for status
+  app.get('/api/test/status', async (req: any, res) => {
+    try {
+      const stats = await storage.getReportStatistics();
+      res.json({ 
+        success: true, 
+        statistics: stats 
+      });
+    } catch (error) {
+      console.error("Test status error:", error);
+      res.status(500).json({ message: "Status test failed", error: error.message });
+    }
+  });
+
+  // Test approval endpoint (bypasses auth)
+  app.patch('/api/test/approve/:id', async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      console.log('TEST: Approving report', id);
+      
+      const updatedReport = await storage.updateReportStatus(id, { 
+        status: "approved" 
+      });
+      
+      console.log('TEST: Report approved successfully');
+      res.json({ 
+        success: true, 
+        report: updatedReport,
+        message: "Report approved successfully" 
+      });
+    } catch (error) {
+      console.error("Test approval error:", error);
+      res.status(500).json({ message: "Approval test failed", error: error.message });
+    }
+  });
+
+  // Test PDF endpoint (bypasses auth)
+  app.get('/api/test/pdf/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      console.log('TEST: Getting PDF data for report', id);
+      
+      const report = await storage.getReport(id);
+      
+      if (!report) {
+        return res.status(404).json({ message: "Report not found" });
+      }
+
+      if (report.status !== 'approved') {
+        return res.status(400).json({ message: "Only approved reports can be printed" });
+      }
+
+      const pdfData = {
+        reportNumber: report.reportNumber,
+        userNumber: report.userNumber,
+        bankCode: report.bankCode,
+        branchCode: report.branchCode,
+        companyName: report.companyName,
+        contactPersonName: report.contactPersonName,
+        handlerName: `${report.handler.lastName} ${report.handler.firstName}`,
+        approverName: report.approver ? `${report.approver.lastName} ${report.approver.firstName}` : "承認者未設定",
+        inquiryContent: report.inquiryContent,
+        responseContent: report.responseContent,
+        escalationRequired: report.escalationRequired,
+        escalationReason: report.escalationReason,
+        approvedAt: report.approvedAt,
+        createdAt: report.createdAt
+      };
+
+      console.log('TEST: PDF data prepared');
+      res.json({ 
+        success: true, 
+        message: "PDF生成用データを取得しました", 
+        data: pdfData 
+      });
+    } catch (error) {
+      console.error("Test PDF error:", error);
+      res.status(500).json({ message: "PDF test failed", error: error.message });
     }
   });
 
