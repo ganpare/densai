@@ -24,13 +24,13 @@ Preferred communication style: Simple, everyday language.
 - **Development**: Hot reload with Vite integration for full-stack development
 
 ## Authentication & Authorization
-- **Provider**: Replit OAuth integration using OpenID Connect
-- **Session Management**: Express sessions with PostgreSQL session store
+- **Provider**: Username/Password authentication with session management
+- **Session Management**: Express sessions with SQLite session store
 - **Role-Based Access**: Three user roles (creator, approver, admin) with approval level hierarchies
 - **Security**: HTTP-only cookies with secure session handling
 
 ## Database Architecture
-- **Database**: PostgreSQL with connection pooling via Neon serverless
+- **Database**: SQLite with better-sqlite3 for local file-based storage
 - **ORM**: Drizzle ORM for type-safe database operations
 - **Schema Management**: Centralized schema definitions in `/shared/schema.ts` with Zod validation
 - **Key Entities**:
@@ -53,12 +53,12 @@ Preferred communication style: Simple, everyday language.
 # External Dependencies
 
 ## Database Services
-- **Neon Database**: Serverless PostgreSQL hosting with connection pooling
-- **Database URL**: Required environment variable for database connectivity
+- **SQLite**: Local file-based database with better-sqlite3 driver
+- **Database File**: Stored as `database.sqlite` in the project root
 
 ## Authentication Services  
-- **Replit OAuth**: OpenID Connect integration for user authentication
-- **Session Storage**: PostgreSQL-backed session storage using connect-pg-simple
+- **Local Authentication**: Username/password-based authentication system
+- **Session Storage**: SQLite-backed session storage using connect-sqlite3
 
 ## Development Tools
 - **Vite**: Build tool and development server with React plugin

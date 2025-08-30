@@ -29,8 +29,7 @@ export const users = sqliteTable("users", {
   password: text("password").notNull(),
   firstName: text("first_name"),
   lastName: text("last_name"),
-  role: text("role").notNull().default("creator"), // creator, approver, admin
-  approvalLevel: integer("approval_level").default(1),
+  roles: text("roles").notNull().default("handler"), // JSON array: ["handler"], ["approver"], ["handler","approver"], ["admin"]
   createdAt: integer("created_at"),
   updatedAt: integer("updated_at"),
 });
@@ -111,8 +110,7 @@ export const insertUserSchema = createInsertSchema(users).pick({
   password: true,
   firstName: true,
   lastName: true,
-  role: true,
-  approvalLevel: true,
+  roles: true,
 });
 
 export const insertFinancialInstitutionSchema = createInsertSchema(financialInstitutions).omit({

@@ -28,8 +28,7 @@ sqlite.exec(`
     first_name TEXT,
     last_name TEXT,
     profile_image_url TEXT,
-    role TEXT NOT NULL DEFAULT 'creator',
-    approval_level INTEGER DEFAULT 1,
+    roles TEXT NOT NULL DEFAULT '["handler"]',
     created_at INTEGER DEFAULT (unixepoch()),
     updated_at INTEGER DEFAULT (unixepoch())
   );
@@ -81,12 +80,12 @@ if (userCount.count === 0) {
   
   // パスワードは簡単な例として平文で保存（本番では必ずハッシュ化）
   sqlite.prepare(`
-    INSERT INTO users (id, username, password, email, first_name, last_name, role, approval_level, created_at, updated_at) VALUES 
-    ('creator1', 'tanaka', 'password123', 'creator@example.com', '太郎', '田中', 'creator', 1, ${currentTimestamp}, ${currentTimestamp}),
-    ('creator2', 'sato', 'password123', 'creator2@example.com', '花子', '佐藤', 'creator', 1, ${currentTimestamp}, ${currentTimestamp}),
-    ('approver1', 'suzuki', 'password123', 'approver@example.com', '次郎', '鈴木', 'approver', 2, ${currentTimestamp}, ${currentTimestamp}),
-    ('approver2', 'takahashi', 'password123', 'approver2@example.com', '美咲', '高橋', 'approver', 3, ${currentTimestamp}, ${currentTimestamp}),
-    ('admin1', 'tamura', 'password123', 'admin@example.com', '健太', '田村', 'admin', 5, ${currentTimestamp}, ${currentTimestamp})
+    INSERT INTO users (id, username, password, email, first_name, last_name, roles, created_at, updated_at) VALUES 
+    ('handler1', 'tanaka', 'password123', 'handler@example.com', '太郎', '田中', '["handler"]', ${currentTimestamp}, ${currentTimestamp}),
+    ('handler2', 'sato', 'password123', 'handler2@example.com', '花子', '佐藤', '["handler"]', ${currentTimestamp}, ${currentTimestamp}),
+    ('approver1', 'suzuki', 'password123', 'approver@example.com', '次郎', '鈴木', '["approver"]', ${currentTimestamp}, ${currentTimestamp}),
+    ('approver2', 'takahashi', 'password123', 'approver2@example.com', '美咲', '高橋', '["handler","approver"]', ${currentTimestamp}, ${currentTimestamp}),
+    ('admin1', 'tamura', 'password123', 'admin@example.com', '健太', '田村', '["admin"]', ${currentTimestamp}, ${currentTimestamp})
   `).run();
   
   // Insert sample financial institutions
