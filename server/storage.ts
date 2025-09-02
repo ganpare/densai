@@ -37,7 +37,7 @@ export interface IStorage {
   updateReportStatus(id: string, status: UpdateReportStatus): Promise<Report>;
   getReport(id: string): Promise<ReportWithDetails | undefined>;
   getReportsByUser(userId: string, status?: string): Promise<ReportWithDetails[]>;
-  getReportsForApproval(approverId: string): Promise<ReportWithDetails[]>;
+  getReportsForApproval(approverId?: string): Promise<ReportWithDetails[]>;
   getAllReports(limit?: number, offset?: number): Promise<ReportWithDetails[]>;
   searchReports(query: string, userId?: string): Promise<ReportWithDetails[]>;
   
@@ -201,11 +201,15 @@ export class DatabaseStorage implements IStorage {
     };
 
     if (statusUpdate.status === 'approved') {
-      updateData.approvedAt = Math.floor(Date.now() / 1000);
+      updateData.approvedAt = statusUpdate.approvedAt || Math.floor(Date.now() / 1000);
     }
 
     if (statusUpdate.rejectionReason) {
       updateData.rejectionReason = statusUpdate.rejectionReason;
+    }
+
+    if (statusUpdate.approverId) {
+      updateData.approverId = statusUpdate.approverId;
     }
 
     const [updated] = await db
@@ -286,7 +290,7 @@ export class DatabaseStorage implements IStorage {
     }));
   }
 
-  async getReportsForApproval(approverId: string): Promise<ReportWithDetails[]> {
+  async getReportsForApproval(approverId?: string): Promise<ReportWithDetails[]> {
     console.log('getReportsForApproval called with approverId:', approverId);
     
     // Simplified query - just get pending reports with handler info
@@ -477,6 +481,95 @@ export class DatabaseStorage implements IStorage {
 
   async deleteUser(id: string): Promise<void> {
     await db.delete(users).where(eq(users.id, id));
+  }
+
+  async getTodayApprovedReportsByBank(): Promise<{ [bankCode: string]: ReportWithDetails[] }> {
+    // Calculate today's start and end timestamps
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000 - 1);
+    
+    const startTimestamp = Math.floor(todayStart.getTime() / 1000);
+    const endTimestamp = Math.floor(todayEnd.getTime() / 1000);
+
+    console.log('Getting today approved reports for date range:', {
+      start: todayStart.toISOString(),
+      end: todayEnd.toISOString(),
+      startTimestamp,
+      endTimestamp
+    });
+
+    const result = await db
+      .select({
+        report: reports,
+        handler: users,
+        approver: {
+          id: sql`approver.id`,
+          firstName: sql`approver.first_name`,
+          lastName: sql`approver.last_name`,
+          roles: sql`approver.roles`,
+          createdAt: sql`approver.created_at`,
+          updatedAt: sql`approver.updated_at`,
+        },
+      })
+      .from(reports)
+      .innerJoin(users, eq(reports.handlerId, users.id))
+      .leftJoin(
+        alias(users, 'approver'),
+        eq(reports.approverId, sql`approver.id`)
+      )
+      .where(
+        and(
+          eq(reports.status, 'approved'),
+          gte(reports.approvedAt, startTimestamp),
+          lte(reports.approvedAt, endTimestamp)
+        )
+      )
+      .orderBy(reports.bankCode, reports.branchCode, reports.approvedAt);
+
+    console.log('Found approved reports today:', result.length);
+
+    // Group reports by bank code
+    const groupedReports: { [bankCode: string]: ReportWithDetails[] } = {};
+    
+    for (const row of result) {
+      const reportWithDetails: ReportWithDetails = {
+        ...row.report,
+        handler: row.handler,
+        approver: row.approver as User,
+      };
+
+      if (!groupedReports[row.report.bankCode]) {
+        groupedReports[row.report.bankCode] = [];
+      }
+      
+      groupedReports[row.report.bankCode].push(reportWithDetails);
+    }
+
+    console.log('Grouped by bank code:', Object.keys(groupedReports));
+    return groupedReports;
+  }
+
+  async getTodayReportCount(): Promise<number> {
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000 - 1);
+    
+    const startTimestamp = Math.floor(todayStart.getTime() / 1000);
+    const endTimestamp = Math.floor(todayEnd.getTime() / 1000);
+
+    const result = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(reports)
+      .where(
+        and(
+          eq(reports.status, 'approved'),
+          gte(reports.approvedAt, startTimestamp),
+          lte(reports.approvedAt, endTimestamp)
+        )
+      );
+
+    return result[0]?.count || 0;
   }
 }
 

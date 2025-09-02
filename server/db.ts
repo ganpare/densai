@@ -24,7 +24,6 @@ sqlite.exec(`
     id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
     username TEXT NOT NULL UNIQUE,
     password TEXT NOT NULL,
-    email TEXT UNIQUE,
     first_name TEXT,
     last_name TEXT,
     profile_image_url TEXT,
@@ -80,12 +79,12 @@ if (userCount.count === 0) {
   
   // パスワードは簡単な例として平文で保存（本番では必ずハッシュ化）
   sqlite.prepare(`
-    INSERT INTO users (id, username, password, email, first_name, last_name, roles, created_at, updated_at) VALUES 
-    ('handler1', 'tanaka', 'password123', 'handler@example.com', '太郎', '田中', '["handler"]', ${currentTimestamp}, ${currentTimestamp}),
-    ('handler2', 'sato', 'password123', 'handler2@example.com', '花子', '佐藤', '["handler"]', ${currentTimestamp}, ${currentTimestamp}),
-    ('approver1', 'suzuki', 'password123', 'approver@example.com', '次郎', '鈴木', '["approver"]', ${currentTimestamp}, ${currentTimestamp}),
-    ('approver2', 'takahashi', 'password123', 'approver2@example.com', '美咲', '高橋', '["handler","approver"]', ${currentTimestamp}, ${currentTimestamp}),
-    ('admin1', 'tamura', 'password123', 'admin@example.com', '健太', '田村', '["admin"]', ${currentTimestamp}, ${currentTimestamp})
+    INSERT INTO users (id, username, password, first_name, last_name, roles, created_at, updated_at) VALUES 
+    ('handler1', 'tanaka', 'password123', '太郎', '田中', '["handler"]', ${currentTimestamp}, ${currentTimestamp}),
+    ('handler2', 'sato', 'password123', '花子', '佐藤', '["handler"]', ${currentTimestamp}, ${currentTimestamp}),
+    ('approver1', 'suzuki', 'password123', '次郎', '鈴木', '["approver"]', ${currentTimestamp}, ${currentTimestamp}),
+    ('approver2', 'takahashi', 'password123', '美咲', '高橋', '["handler","approver"]', ${currentTimestamp}, ${currentTimestamp}),
+    ('admin1', 'tamura', 'password123', '健太', '田村', '["admin"]', ${currentTimestamp}, ${currentTimestamp})
   `).run();
   
   // Insert sample financial institutions

@@ -131,11 +131,38 @@ export const insertReportSchema = createInsertSchema(reports).omit({
   approvedAt: true,
   createdAt: true,
   updatedAt: true,
+}).extend({
+  userNumber: z.string().min(1, "利用者番号は必須です"),
+  bankCode: z.string().min(1, "金融機関コードは必須です"),
+  branchCode: z.string().min(1, "支店コードは必須です"),
+  companyName: z.string().min(1, "企業名は必須です"),
+  contactPersonName: z.string().min(1, "連絡者氏名は必須です"),
+  inquiryContent: z.string().min(1, "問い合わせ内容は必須です"),
+  responseContent: z.string().min(1, "対応内容は必須です"),
 });
+
+// Schema for submitting reports for approval (stricter validation)
+export const submitReportForApprovalSchema = insertReportSchema.refine(
+  (data) => {
+    // All required fields must be non-empty
+    return data.userNumber.trim().length > 0 &&
+           data.bankCode.trim().length > 0 &&
+           data.branchCode.trim().length > 0 &&
+           data.companyName.trim().length > 0 &&
+           data.contactPersonName.trim().length > 0 &&
+           data.inquiryContent.trim().length > 0 &&
+           data.responseContent.trim().length > 0;
+  },
+  {
+    message: "すべての必須項目を入力してください",
+  }
+);
 
 export const updateReportStatusSchema = z.object({
   status: z.enum(["pending_approval", "approved", "rejected"]),
   rejectionReason: z.string().optional(),
+  approverId: z.string().optional(),
+  approvedAt: z.number().optional(),
 });
 
 // Types
@@ -147,6 +174,7 @@ export type InsertBranch = z.infer<typeof insertBranchSchema>;
 export type Branch = typeof branches.$inferSelect;
 export type InsertReport = z.infer<typeof insertReportSchema>;
 export type Report = typeof reports.$inferSelect;
+export type SubmitReportForApproval = z.infer<typeof submitReportForApprovalSchema>;
 export type UpdateReportStatus = z.infer<typeof updateReportStatusSchema>;
 
 export type ReportWithDetails = Report & {

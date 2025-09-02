@@ -13,15 +13,18 @@ import {
   History, 
   Settings, 
   Users,
+  Calendar,
   LogOut, 
   Menu, 
   X 
 } from "lucide-react";
+import BulkPrintModal from "@/components/reports/bulk-print-modal";
 
 export default function Sidebar() {
   const [location] = useLocation();
   const { user } = useAuth();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [showBulkPrintModal, setShowBulkPrintModal] = useState(false);
 
   const { data: statistics } = useQuery({
     queryKey: ["/api/statistics"],
@@ -60,7 +63,29 @@ export default function Sidebar() {
       icon: CheckCircle,
       current: location === "/approval",
       badge: (statistics as any)?.pendingApprovals || 0,
-      show: (user as any)?.role === "approver" || (user as any)?.role === "admin",
+      show: (() => {
+        try {
+          const roles = JSON.parse((user as any)?.roles || '[]');
+          return roles.includes('approver') || roles.includes('admin');
+        } catch {
+          return false;
+        }
+      })(),
+    },
+    {
+      name: "一括印刷",
+      href: "#",
+      icon: Calendar,
+      current: false,
+      onClick: () => setShowBulkPrintModal(true),
+      show: (() => {
+        try {
+          const roles = JSON.parse((user as any)?.roles || '[]');
+          return roles.includes('handler') || roles.includes('approver') || roles.includes('admin');
+        } catch {
+          return false;
+        }
+      })(),
     },
     {
       name: "履歴・検索",
@@ -79,7 +104,14 @@ export default function Sidebar() {
       href: "/users",
       icon: Users,
       current: location === "/users",
-      show: (user as any)?.role === "admin",
+      show: (() => {
+        try {
+          const roles = JSON.parse((user as any)?.roles || '[]');
+          return roles.includes('admin');
+        } catch {
+          return false;
+        }
+      })(),
     },
   ];
 
@@ -165,7 +197,13 @@ export default function Sidebar() {
                       : "text-muted-foreground hover:text-foreground hover:bg-accent"
                   )}
                   data-testid={`nav-${item.href.replace(/[\/]/g, '-') || 'home'}`}
-                  onClick={() => setIsMobileOpen(false)}
+                  onClick={(e) => {
+                    setIsMobileOpen(false);
+                    if (item.onClick) {
+                      e.preventDefault();
+                      item.onClick();
+                    }
+                  }}
                 >
                   <Icon className="mr-3 h-4 w-4" />
                   {item.name}
@@ -218,6 +256,13 @@ export default function Sidebar() {
         <div 
           className="lg:hidden fixed inset-0 z-30 bg-black bg-opacity-50" 
           onClick={() => setIsMobileOpen(false)}
+        />
+      )}
+
+      {/* Bulk Print Modal */}
+      {showBulkPrintModal && (
+        <BulkPrintModal
+          onClose={() => setShowBulkPrintModal(false)}
         />
       )}
     </>
