@@ -19,31 +19,30 @@ import Sidebar from "@/components/layout/sidebar";
 import Header from "@/components/layout/header";
 
 const userSchema = z.object({
-  email: z.string().email("有効なメールアドレスを入力してください"),
+  username: z.string().min(1, "ユーザー名は必須です"),
+  password: z.string().min(1, "パスワードは必須です"),
   firstName: z.string().min(1, "名前（名）は必須です"),
   lastName: z.string().min(1, "名前（姓）は必須です"),
-  role: z.enum(["creator", "approver", "admin"], {
+  roles: z.enum(["handler", "approver", "admin"], {
     required_error: "役割を選択してください"
   }),
-  approvalLevel: z.number().min(1).max(5).default(1),
 });
 
 type UserFormData = z.infer<typeof userSchema>;
 
 interface User {
   id: string;
-  email: string;
+  username: string;
   firstName: string;
   lastName: string;
-  role: string;
-  approvalLevel: number;
+  roles: string;
   createdAt: number;
   updatedAt: number;
 }
 
 const getRoleDisplayName = (role: string) => {
   const roleMap: { [key: string]: string } = {
-    creator: "作成者",
+    handler: "ハンドラー",
     approver: "承認者", 
     admin: "管理者"
   };
@@ -54,7 +53,7 @@ const getRoleBadgeVariant = (role: string) => {
   switch (role) {
     case 'admin': return 'destructive';
     case 'approver': return 'default';
-    case 'creator': return 'secondary';
+    case 'handler': return 'secondary';
     default: return 'outline';
   }
 };
@@ -72,11 +71,11 @@ export default function UserManagement() {
   const form = useForm<UserFormData>({
     resolver: zodResolver(userSchema),
     defaultValues: {
-      email: "",
+      username: "",
+      password: "",
       firstName: "",
       lastName: "",
-      role: "creator",
-      approvalLevel: 1,
+      roles: "handler",
     },
   });
 
@@ -157,11 +156,11 @@ export default function UserManagement() {
   const handleEdit = (user: User) => {
     setEditingUser(user);
     form.reset({
-      email: user.email,
+      username: user.username,
+      password: "", // Password is not editable
       firstName: user.firstName,
       lastName: user.lastName,
-      role: user.role as "creator" | "approver" | "admin",
-      approvalLevel: user.approvalLevel,
+      roles: user.roles as "handler" | "approver" | "admin",
     });
   };
 
@@ -211,15 +210,34 @@ export default function UserManagement() {
               <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
                 <FormField
                   control={form.control}
-                  name="email"
+                  name="username"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>メールアドレス</FormLabel>
+                      <FormLabel>ユーザー名</FormLabel>
                       <FormControl>
                         <Input 
-                          type="email" 
-                          placeholder="user@example.com"
-                          data-testid="input-email"
+                          type="text" 
+                          placeholder="ユーザー名"
+                          data-testid="input-username"
+                          {...field} 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>パスワード</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="password" 
+                          placeholder="パスワード"
+                          data-testid="input-password"
                           {...field} 
                         />
                       </FormControl>
@@ -268,7 +286,7 @@ export default function UserManagement() {
                 
                 <FormField
                   control={form.control}
-                  name="role"
+                  name="roles"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>役割</FormLabel>
@@ -283,38 +301,9 @@ export default function UserManagement() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="creator">作成者（一般ユーザー）</SelectItem>
+                          <SelectItem value="handler">ハンドラー（一般ユーザー）</SelectItem>
                           <SelectItem value="approver">承認者</SelectItem>
                           <SelectItem value="admin">管理者</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={form.control}
-                  name="approvalLevel"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>承認レベル（1-5）</FormLabel>
-                      <Select 
-                        onValueChange={(value) => field.onChange(parseInt(value))} 
-                        defaultValue={field.value.toString()}
-                        data-testid="select-approval-level"
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="承認レベルを選択" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="1">レベル1（基本）</SelectItem>
-                          <SelectItem value="2">レベル2（標準）</SelectItem>
-                          <SelectItem value="3">レベル3（上級）</SelectItem>
-                          <SelectItem value="4">レベル4（管理）</SelectItem>
-                          <SelectItem value="5">レベル5（最高）</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -361,7 +350,7 @@ export default function UserManagement() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold" data-testid="text-admin-count">
-              {(users as any[]).filter(u => u.role === 'admin').length}
+              {(users as any[]).filter(u => u.roles === 'admin').length}
             </div>
           </CardContent>
         </Card>
@@ -373,7 +362,7 @@ export default function UserManagement() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold" data-testid="text-approver-count">
-              {(users as any[]).filter(u => u.role === 'approver').length}
+              {(users as any[]).filter(u => u.roles === 'approver').length}
             </div>
           </CardContent>
         </Card>
@@ -390,7 +379,7 @@ export default function UserManagement() {
         <CardContent>
           {isLoading ? (
             <div className="text-center py-4">読み込み中...</div>
-          ) : (users as any[]).length === 0 ? (
+          ) : (users as User[]).length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <Users className="mx-auto h-12 w-12 mb-4 opacity-50" />
               <p>まだユーザーが登録されていません</p>
@@ -401,9 +390,8 @@ export default function UserManagement() {
               <TableHeader>
                 <TableRow>
                   <TableHead>名前</TableHead>
-                  <TableHead>メールアドレス</TableHead>
+                  <TableHead>ユーザー名</TableHead>
                   <TableHead>役割</TableHead>
-                  <TableHead>承認レベル</TableHead>
                   <TableHead>作成日</TableHead>
                   <TableHead className="w-[100px]">操作</TableHead>
                 </TableRow>
@@ -414,16 +402,13 @@ export default function UserManagement() {
                     <TableCell className="font-medium" data-testid={`text-name-${user.id}`}>
                       {user.lastName} {user.firstName}
                     </TableCell>
-                    <TableCell data-testid={`text-email-${user.id}`}>
-                      {user.email}
+                    <TableCell data-testid={`text-username-${user.id}`}>
+                      {user.username}
                     </TableCell>
                     <TableCell data-testid={`badge-role-${user.id}`}>
-                      <Badge variant={getRoleBadgeVariant(user.role)}>
-                        {getRoleDisplayName(user.role)}
+                      <Badge variant={getRoleBadgeVariant(user.roles)}>
+                        {getRoleDisplayName(user.roles)}
                       </Badge>
-                    </TableCell>
-                    <TableCell data-testid={`text-level-${user.id}`}>
-                      レベル{user.approvalLevel}
                     </TableCell>
                     <TableCell className="text-muted-foreground" data-testid={`text-created-${user.id}`}>
                       {new Date(user.createdAt * 1000).toLocaleDateString('ja-JP')}

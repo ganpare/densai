@@ -8,7 +8,8 @@ import {
   submitReportForApprovalSchema,
   updateReportStatusSchema,
   insertFinancialInstitutionSchema,
-  insertBranchSchema 
+  insertBranchSchema,
+  insertUserSchema // Added insertUserSchema
 } from "@shared/schema";
 import { z } from "zod";
 import { randomUUID } from "crypto";
@@ -69,8 +70,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/users', isAuthenticated, async (req, res) => {
     try {
+      // バリデーションスキーマでリクエストボディを検証
+      const validatedData = insertUserSchema.parse(req.body);
+      
       const userData = {
-        ...req.body,
+        ...validatedData,
         id: randomUUID(),
         createdAt: Math.floor(Date.now() / 1000),
         updatedAt: Math.floor(Date.now() / 1000),
@@ -78,8 +82,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = await storage.createUser(userData);
       res.status(201).json(user);
     } catch (error) {
-      console.error("Error creating user:", error);
-      res.status(500).json({ message: "Failed to create user" });
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Invalid data", errors: error.errors });
+      } else {
+        console.error("Error creating user:", error);
+        res.status(500).json({ message: "Failed to create user" });
+      }
     }
   });
 
