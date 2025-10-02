@@ -143,9 +143,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create report as draft first
       const report = await storage.createReport({ 
         ...validatedData, 
-        handlerId: userId,
-        approverId: null,  // No approver assigned at creation time
-        status: 'draft'   // Always start as draft
+        handlerId: userId
       });
       
       // If this is a direct submission (not just draft save), change status to pending_approval
@@ -351,9 +349,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         inquiryContent: report.inquiryContent,
         responseContent: report.responseContent,
         escalationRequired: report.escalationRequired,
-        escalationReason: report.escalationReason,
-        approvedAt: report.approvedAt,
-        createdAt: report.createdAt
+        escalationReason: report.escalationReason || undefined,
+        approvedAt: report.approvedAt || undefined,
+        createdAt: report.createdAt || 0
       };
 
       const pdfPath = await pdfService.generateReportPdf(pdfData);

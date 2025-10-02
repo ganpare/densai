@@ -28,16 +28,43 @@ export default function ReportDetailModal({
   const { toast } = useToast();
   const [showPrintModal, setShowPrintModal] = useState(false);
 
-  // PDF generation mutation
+  // PDF generation and download mutation
   const generatePdfMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest("GET", `/api/reports/${report.id}/pdf`);
-      return response.json();
+      // Step 1: Generate PDF on server
+      const generateResponse = await apiRequest("POST", `/api/reports/${report.id}/pdf/generate`);
+      const result = await generateResponse.json();
+      
+      if (!result.success) {
+        throw new Error(result.message || "PDF generation failed");
+      }
+      
+      // Step 2: Download the generated PDF
+      const downloadResponse = await fetch(`/api/reports/${report.id}/pdf/download`, {
+        credentials: 'include'
+      });
+      
+      if (!downloadResponse.ok) {
+        throw new Error("PDF download failed");
+      }
+      
+      // Create a blob from the response and trigger download
+      const blob = await downloadResponse.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = result.filename || `report_${report.id}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      return result;
     },
     onSuccess: () => {
       toast({
-        title: "PDF生成完了",
-        description: "PDFの生成が完了しました。",
+        title: "PDF出力完了",
+        description: "PDFファイルのダウンロードが開始されました。",
       });
     },
     onError: (error: Error) => {
@@ -53,7 +80,7 @@ export default function ReportDetailModal({
         return;
       }
       toast({
-        title: "PDF生成エラー",
+        title: "PDF出力エラー",
         description: "PDFの生成に失敗しました。",
         variant: "destructive",
       });
