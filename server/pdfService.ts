@@ -39,8 +39,15 @@ export class PdfService {
     });
   }
 
+  private sanitizeFilename(filename: string): string {
+    // Remove any path traversal attempts and special characters
+    return filename.replace(/[^a-zA-Z0-9_-]/g, '_');
+  }
+
   async generateReportPdf(data: ReportPdfData): Promise<string> {
-    const filename = `report_${data.reportNumber}_${Date.now()}.pdf`;
+    // Sanitize report number to prevent path traversal
+    const sanitizedReportNumber = this.sanitizeFilename(data.reportNumber);
+    const filename = `report_${sanitizedReportNumber}_${Date.now()}.pdf`;
     const filepath = path.join(UPLOADS_DIR, filename);
 
     return new Promise((resolve, reject) => {
