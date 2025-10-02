@@ -313,13 +313,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // PDF Generation route - Generate and save PDF on server
-  app.post('/api/reports/:id/pdf/generate', isAuthenticated, async (req, res) => {
+  app.post('/api/reports/:id/pdf/generate', isAuthenticated, async (req: any, res) => {
     try {
       const { id } = req.params;
+      const userId = req.user.claims.sub;
       const report = await storage.getReport(id);
       
       if (!report) {
         return res.status(404).json({ message: "Report not found" });
+      }
+
+      // Authorization check: Only handler, approver, or admin can generate PDF
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const isAuthorized = 
+        report.handlerId === userId || 
+        report.approverId === userId || 
+        user.role === 'admin';
+
+      if (!isAuthorized) {
+        return res.status(403).json({ message: "Not authorized to generate PDF for this report" });
       }
 
       if (report.status !== 'approved') {
@@ -372,13 +388,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // PDF Download route - Download existing PDF
-  app.get('/api/reports/:id/pdf/download', isAuthenticated, async (req, res) => {
+  app.get('/api/reports/:id/pdf/download', isAuthenticated, async (req: any, res) => {
     try {
       const { id } = req.params;
+      const userId = req.user.claims.sub;
       const report = await storage.getReport(id);
       
       if (!report) {
         return res.status(404).json({ message: "Report not found" });
+      }
+
+      // Authorization check: Only handler, approver, or admin can download PDF
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const isAuthorized = 
+        report.handlerId === userId || 
+        report.approverId === userId || 
+        user.role === 'admin';
+
+      if (!isAuthorized) {
+        return res.status(403).json({ message: "Not authorized to download PDF for this report" });
       }
 
       if (!report.pdfFilePath) {
