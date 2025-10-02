@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
+import { pdfService } from "./pdfService";
 import { 
   insertReportSchema, 
   updateReportStatusSchema,
@@ -10,6 +11,7 @@ import {
 } from "@shared/schema";
 import { z } from "zod";
 import { randomUUID } from "crypto";
+import path from "path";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
@@ -312,8 +314,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // PDF Generation route
-  app.get('/api/reports/:id/pdf', isAuthenticated, async (req, res) => {
+  // PDF Generation route - Generate and save PDF on server
+  app.post('/api/reports/:id/pdf/generate', isAuthenticated, async (req, res) => {
     try {
       const { id } = req.params;
       const report = await storage.getReport(id);
@@ -326,7 +328,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Only approved reports can be printed" });
       }
 
-      // PDF生成に必要なデータを返す
+      // Check if PDF already exists
+      if (report.pdfFilePath && pdfService.pdfExists(report.pdfFilePath)) {
+        return res.json({ 
+          success: true, 
+          message: "PDFは既に生成されています", 
+          pdfPath: report.pdfFilePath,
+          filename: path.basename(report.pdfFilePath)
+        });
+      }
+
+      // Generate PDF using pdfService
       const pdfData = {
         reportNumber: report.reportNumber,
         userNumber: report.userNumber,
@@ -344,14 +356,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
         createdAt: report.createdAt
       };
 
+      const pdfPath = await pdfService.generateReportPdf(pdfData);
+      
+      // Update report with PDF file path
+      await storage.updateReport(id, { pdfFilePath: pdfPath });
+
       res.json({ 
         success: true, 
-        message: "PDF生成用データを取得しました", 
-        data: pdfData 
+        message: "PDFの生成が完了しました", 
+        pdfPath,
+        filename: path.basename(pdfPath)
       });
     } catch (error) {
       console.error("Error generating PDF:", error);
       res.status(500).json({ message: "Failed to generate PDF" });
+    }
+  });
+
+  // PDF Download route - Download existing PDF
+  app.get('/api/reports/:id/pdf/download', isAuthenticated, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const report = await storage.getReport(id);
+      
+      if (!report) {
+        return res.status(404).json({ message: "Report not found" });
+      }
+
+      if (!report.pdfFilePath) {
+        return res.status(404).json({ message: "PDF not generated yet" });
+      }
+
+      if (!pdfService.pdfExists(report.pdfFilePath)) {
+        return res.status(404).json({ message: "PDF file not found" });
+      }
+
+      const filename = path.basename(report.pdfFilePath);
+      res.download(report.pdfFilePath, filename);
+    } catch (error) {
+      console.error("Error downloading PDF:", error);
+      res.status(500).json({ message: "Failed to download PDF" });
     }
   });
 
