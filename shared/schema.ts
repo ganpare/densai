@@ -71,6 +71,7 @@ export const reports = pgTable("reports", {
   escalationReason: text("escalation_reason"),
   status: text("status").notNull().default("draft"), // draft, pending_approval, approved, rejected
   rejectionReason: text("rejection_reason"),
+  pdfFilePath: text("pdf_file_path"),
   approvedAt: integer("approved_at"),
   createdAt: integer("created_at"),
   updatedAt: integer("updated_at"),
