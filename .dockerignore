@@ -1,0 +1,52 @@
+# Dependencies
+node_modules
+npm-debug.log
+yarn-error.log
+
+# Git
+.git
+.gitignore
+
+# Documentation
+*.md
+!DOCKER_DEPLOYMENT.md
+
+# Environment
+.env
+.env.*
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+dist
+build
+
+# Logs
+logs
+*.log
+
+# Uploads (will be mounted as volume)
+uploads/pdfs/*
+!uploads/pdfs/.gitkeep
+
+# Temporary files
+tmp
+temp
+*.tmp
+
+# Testing
+coverage
+.nyc_output
+
+# Misc
+*.tar.gz
+.cache
