@@ -6,6 +6,7 @@ import {
   integer,
   boolean,
   serial,
+  timestamp,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
@@ -17,7 +18,7 @@ export const sessions = pgTable(
   {
     sid: text("sid").primaryKey(),
     sess: text("sess").notNull(),
-    expire: integer("expire").notNull(),
+    expire: timestamp("expire").notNull(),
   },
   (table) => ({
     expireIdx: index("IDX_session_expire").on(table.expire),
