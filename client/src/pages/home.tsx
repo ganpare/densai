@@ -65,8 +65,10 @@ export default function Home() {
     );
   };
 
-  const formatDateTime = (dateString: string) => {
-    return new Date(dateString).toLocaleString('ja-JP', {
+  const formatDateTime = (timestamp: number | undefined) => {
+    if (!timestamp) return '-';
+    // Unix timestamp (秒) → ミリ秒に変換
+    return new Date(timestamp * 1000).toLocaleString('ja-JP', {
       year: 'numeric',
       month: '2-digit', 
       day: '2-digit',
@@ -189,7 +191,7 @@ export default function Home() {
                               {getStatusBadge(report.status)}
                             </TableCell>
                             <TableCell className="text-muted-foreground" data-testid={`text-created-${report.id}`}>
-                              {formatDateTime(report.createdAt?.toString() || '')}
+                              {formatDateTime(report.createdAt)}
                             </TableCell>
                             <TableCell>
                               <div className="flex items-center space-x-2">

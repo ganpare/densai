@@ -80,8 +80,10 @@ export default function History() {
     );
   };
 
-  const formatDateTime = (dateString: string) => {
-    return new Date(dateString).toLocaleString('ja-JP', {
+  const formatDateTime = (timestamp: number | undefined) => {
+    if (!timestamp) return '-';
+    // Unix timestamp (秒) → ミリ秒に変換
+    return new Date(timestamp * 1000).toLocaleString('ja-JP', {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
@@ -214,7 +216,7 @@ export default function History() {
                               {getStatusBadge(report.status)}
                             </TableCell>
                             <TableCell className="text-muted-foreground" data-testid={`text-created-${report.id}`}>
-                              {formatDateTime(report.createdAt?.toString() || '')}
+                              {formatDateTime(report.createdAt)}
                             </TableCell>
                             <TableCell>
                               <Button
