@@ -208,6 +208,20 @@ export class DatabaseStorage implements IStorage {
       updateData.rejectionReason = statusUpdate.rejectionReason;
     }
 
+    // 承認申請時に承認者を自動割り当て
+    if (statusUpdate.status === 'pending_approval') {
+      // 承認権限レベル2の承認者を取得
+      const approvers = await db
+        .select()
+        .from(users)
+        .where(and(eq(users.role, 'approver'), eq(users.approvalLevel, 2)))
+        .limit(1);
+      
+      if (approvers.length > 0) {
+        updateData.approverId = approvers[0].id;
+      }
+    }
+
     const [updated] = await db
       .update(reports)
       .set(updateData)
