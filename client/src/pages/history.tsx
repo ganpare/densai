@@ -80,7 +80,7 @@ export default function History() {
     );
   };
 
-  const formatDateTime = (timestamp: number | undefined) => {
+  const formatDateTime = (timestamp: number | null | undefined) => {
     if (!timestamp) return '-';
     // Unix timestamp (秒) → ミリ秒に変換
     return new Date(timestamp * 1000).toLocaleString('ja-JP', {
