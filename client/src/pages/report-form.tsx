@@ -66,7 +66,7 @@ export default function ReportForm() {
       responseContent: "",
       escalationRequired: false,
       escalationReason: "",
-      handlerId: user?.id || "",
+      handlerId: (user as any)?.id || "",
     },
   });
 
@@ -205,7 +205,7 @@ export default function ReportForm() {
       responseContent: data.responseContent || "",
       escalationRequired: data.escalationRequired || false,
       escalationReason: data.escalationReason || "",
-      handlerId: user?.id || "",
+      handlerId: (user as any)?.id || "",
       _submitForApproval: true  // Flag to indicate this is for approval submission
     };
     
