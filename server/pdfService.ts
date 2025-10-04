@@ -40,11 +40,19 @@ export class PdfService {
   }
 
   private sanitizeFilename(filename: string): string {
-    // Remove any path traversal attempts and special characters
-    return filename.replace(/[^a-zA-Z0-9_-]/g, '_');
+    // Allow alphanumeric, spaces, dots, hyphens, underscores, and parentheses
+    const base = filename.replace(/[^a-zA-Z0-9 ._\-()]/g, '');
+    // Remove leading dots to prevent hidden files
+    const noLeadingDot = base.replace(/^\.+/, '');
+    // Collapse multiple dots to prevent double extensions
+    const singleDots = noLeadingDot.replace(/\.+/g, '.');
+    // Trim whitespace
+    const trimmed = singleDots.trim();
+    // Limit length and provide fallback
+    return trimmed.slice(0, 120) || 'file';
   }
 
-  async generateReportPdf(data: ReportPdfData): Promise<string> {
+  async generateReportPdf(data: ReportPdfData): Promise<{ filename: string; filepath: string }> {
     // Sanitize report number to prevent path traversal
     const sanitizedReportNumber = this.sanitizeFilename(data.reportNumber);
     const filename = `report_${sanitizedReportNumber}_${Date.now()}.pdf`;
@@ -113,7 +121,7 @@ export class PdfService {
         doc.end();
 
         writeStream.on('finish', () => {
-          resolve(filepath);
+          resolve({ filename, filepath });
         });
 
         writeStream.on('error', (error) => {
@@ -126,10 +134,14 @@ export class PdfService {
   }
 
   getPdfPath(filename: string): string {
-    return path.join(UPLOADS_DIR, filename);
+    // Always construct path from base directory to prevent path traversal
+    const sanitized = path.basename(filename);
+    return path.join(UPLOADS_DIR, sanitized);
   }
 
-  pdfExists(filepath: string): boolean {
+  pdfExists(filename: string): boolean {
+    // Construct safe path and check existence
+    const filepath = this.getPdfPath(filename);
     return fs.existsSync(filepath);
   }
 }

@@ -347,8 +347,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({ 
           success: true, 
           message: "PDFは既に生成されています", 
-          pdfPath: report.pdfFilePath,
-          filename: path.basename(report.pdfFilePath)
+          filename: report.pdfFilePath
         });
       }
 
@@ -370,16 +369,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         createdAt: report.createdAt || 0
       };
 
-      const pdfPath = await pdfService.generateReportPdf(pdfData);
+      const { filename, filepath } = await pdfService.generateReportPdf(pdfData);
       
-      // Update report with PDF file path
-      await storage.updateReport(id, { pdfFilePath: pdfPath });
+      // Update report with PDF filename only (not full path)
+      await storage.updateReport(id, { pdfFilePath: filename });
 
       res.json({ 
         success: true, 
         message: "PDFの生成が完了しました", 
-        pdfPath,
-        filename: path.basename(pdfPath)
+        filename
       });
     } catch (error) {
       console.error("Error generating PDF:", error);
@@ -417,12 +415,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "PDF not generated yet" });
       }
 
-      if (!pdfService.pdfExists(report.pdfFilePath)) {
+      // Construct safe file path from filename stored in DB
+      const filename = report.pdfFilePath;
+      const fullPath = pdfService.getPdfPath(filename);
+
+      if (!pdfService.pdfExists(filename)) {
         return res.status(404).json({ message: "PDF file not found" });
       }
 
-      const filename = path.basename(report.pdfFilePath);
-      res.download(report.pdfFilePath, filename);
+      res.download(fullPath, filename);
     } catch (error) {
       console.error("Error downloading PDF:", error);
       res.status(500).json({ message: "Failed to download PDF" });
