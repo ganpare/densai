@@ -1,5 +1,6 @@
 import { Pool } from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
+import { sql } from 'drizzle-orm';
 import * as schema from "@shared/schema";
 
 // PostgreSQL connection pool
@@ -10,20 +11,17 @@ const pool = new Pool({
 export const db = drizzle(pool, { schema });
 
 // Initialize database with schema - PostgreSQL
-async function initializeDatabase() {
+export async function initializeDatabase() {
   try {
     console.log('🔄 Initializing database...');
     
-    // Initialize database if needed (using drizzle push)
-    const { exec } = await import('child_process');
-    const { promisify } = await import('util');
-    const execAsync = promisify(exec);
-    
+    // Check database connection
     try {
-      await execAsync('npm run db:push');
-      console.log('✅ Database schema initialized');
+      await db.execute(sql`SELECT 1`);
+      console.log('✅ Database connection successful');
     } catch (error) {
-      console.log('ℹ️ Database schema may already exist');
+      console.error('❌ Database connection failed:', error);
+      throw error;
     }
     
     // Check if users exist and insert default data if needed
@@ -146,8 +144,6 @@ async function initializeDatabase() {
     }
   } catch (error) {
     console.error('❌ Database initialization error:', error);
+    throw error;
   }
 }
-
-// Initialize on module load
-initializeDatabase();
