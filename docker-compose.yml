@@ -25,7 +25,7 @@ services:
     environment:
       NODE_ENV: production
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/bond_inquiry_db
-      SESSION_SECRET: ${SESSION_SECRET:-change-this-secret-in-production}
+      SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET must be set in .env file}
     ports:
       - "5000:5000"
     volumes:
