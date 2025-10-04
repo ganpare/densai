@@ -107,8 +107,10 @@ export default function ReportDetailModal({
     );
   };
 
-  const formatDateTime = (dateString: string) => {
-    return new Date(dateString).toLocaleString('ja-JP', {
+  const formatDateTime = (timestamp: number | undefined) => {
+    if (!timestamp) return '-';
+    // Unix timestamp (秒) → ミリ秒に変換
+    return new Date(timestamp * 1000).toLocaleString('ja-JP', {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
@@ -170,11 +172,11 @@ export default function ReportDetailModal({
                   {report.reportNumber}
                 </h3>
                 <p className="text-sm text-muted-foreground" data-testid="text-created-date">
-                  作成日時: {formatDateTime(report.createdAt?.toString() || '')}
+                  作成日時: {formatDateTime(report.createdAt)}
                 </p>
                 {report.approvedAt && (
                   <p className="text-sm text-muted-foreground" data-testid="text-approved-date">
-                    承認日時: {formatDateTime(report.approvedAt?.toString() || '')}
+                    承認日時: {formatDateTime(report.approvedAt)}
                   </p>
                 )}
               </div>

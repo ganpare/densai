@@ -141,8 +141,10 @@ export default function Approval() {
     }
   };
 
-  const formatDateTime = (dateString: string) => {
-    return new Date(dateString).toLocaleString('ja-JP', {
+  const formatDateTime = (timestamp: number | undefined) => {
+    if (!timestamp) return '-';
+    // Unix timestamp (秒) → ミリ秒に変換
+    return new Date(timestamp * 1000).toLocaleString('ja-JP', {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
@@ -211,7 +213,7 @@ export default function Approval() {
                             {report.reportNumber}
                           </h3>
                           <p className="text-sm text-muted-foreground" data-testid={`text-submitted-at-${report.id}`}>
-                            提出日時: {formatDateTime(report.createdAt?.toString() || '')}
+                            提出日時: {formatDateTime(report.createdAt)}
                           </p>
                         </div>
                         <Badge variant="secondary" className="bg-warning/10 text-warning">
