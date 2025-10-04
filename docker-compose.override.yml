@@ -1,14 +1,11 @@
 # 開発環境用のオーバーライド設定
 # このファイルはdocker-compose.ymlと自動的にマージされます
-# 本番環境では使用しないでください
+# 本番環境では docker-compose -f docker-compose.yml up を使用してください
 
 version: '3.8'
 
 services:
   app:
-    build:
-      context: .
-      target: development
     command: npm run dev
     environment:
       NODE_ENV: development
@@ -16,5 +13,4 @@ services:
       # ホットリロード用のマウント
       - .:/app
       - /app/node_modules
-    ports:
-      - "5000:5000"
+      - ./uploads:/app/uploads
