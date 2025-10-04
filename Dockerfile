@@ -4,10 +4,13 @@ WORKDIR /app
 
 # 依存関係のインストール
 COPY package*.json ./
-RUN npm ci --only=production
+RUN npm ci
 
 # アプリケーションコードのコピー
 COPY . .
+
+# ビルド実行
+RUN npm run build
 
 # PDFファイル保存用ディレクトリの作成
 RUN mkdir -p uploads/pdfs
@@ -16,4 +19,4 @@ RUN mkdir -p uploads/pdfs
 EXPOSE 5000
 
 # アプリケーション起動
-CMD ["npm", "run", "dev"]
+CMD ["npm", "start"]
