@@ -250,11 +250,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getReportsByUser(userId: string, status?: string): Promise<ReportWithDetails[]> {
-    let whereCondition = eq(reports.handlerId, userId);
-    
-    if (status) {
-      whereCondition = and(eq(reports.handlerId, userId), eq(reports.status, status));
-    }
+    const whereCondition = status 
+      ? and(eq(reports.handlerId, userId), eq(reports.status, status))!
+      : eq(reports.handlerId, userId);
 
     const result = await db
       .select({
