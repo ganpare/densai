@@ -35,6 +35,7 @@ services:
       postgres:
         condition: service_healthy
     restart: unless-stopped
+    command: npm start
 
 volumes:
   postgres_data:
