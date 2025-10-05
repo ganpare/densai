@@ -192,6 +192,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get reports pending approval (must be before /api/reports/:id)
+  app.get('/api/reports/pending', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      // Check if user has approval permission
+      const user = await storage.getUser(userId);
+      if (!user || (user.role !== 'approver' && user.role !== 'admin')) {
+        return res.status(403).json({ message: "Not authorized to view pending approvals" });
+      }
+
+      const reports = await storage.getReportsForApproval(userId);
+      res.json(reports);
+    } catch (error) {
+      console.error("Error fetching pending reports:", error);
+      res.status(500).json({ message: "Failed to fetch pending reports" });
+    }
+  });
+
   app.get('/api/reports/:id', isAuthenticated, async (req, res) => {
     try {
       const { id } = req.params;
@@ -264,25 +283,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error("Error updating report status:", error);
         res.status(500).json({ message: "Failed to update report status" });
       }
-    }
-  });
-
-  // Get reports pending approval
-  app.get('/api/reports/pending', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      
-      // Check if user has approval permission
-      const user = await storage.getUser(userId);
-      if (!user || (user.role !== 'approver' && user.role !== 'admin')) {
-        return res.status(403).json({ message: "Not authorized to view pending approvals" });
-      }
-
-      const reports = await storage.getReportsForApproval(userId);
-      res.json(reports);
-    } catch (error) {
-      console.error("Error fetching pending reports:", error);
-      res.status(500).json({ message: "Failed to fetch pending reports" });
     }
   });
 
