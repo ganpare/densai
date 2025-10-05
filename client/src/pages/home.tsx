@@ -16,7 +16,7 @@ import Header from "@/components/layout/header";
 import StatisticsCard from "@/components/reports/statistics-card";
 import ReportDetailModal from "@/components/reports/report-detail-modal";
 import { ReportWithDetails } from "@shared/schema";
-import { Phone, Clock, CheckCircle, AlertTriangle, Plus, Eye, Edit, XCircle } from "lucide-react";
+import { Phone, Clock, CheckCircle, AlertTriangle, Plus, Eye, Edit, XCircle, Printer } from "lucide-react";
 
 export default function Home() {
   const { toast } = useToast();
@@ -56,6 +56,11 @@ export default function Home() {
   const { data: pendingReports = [], isLoading: pendingLoading } = useQuery<ReportWithDetails[]>({
     queryKey: ["/api/reports", "pending"],
     enabled: (user as any)?.role === 'approver' || (user as any)?.role === 'admin',
+    retry: false,
+  });
+
+  const { data: todayApprovedReports = [], isLoading: todayApprovedLoading } = useQuery<ReportWithDetails[]>({
+    queryKey: ["/api/reports", "today-approved"],
     retry: false,
   });
 
@@ -155,6 +160,42 @@ export default function Home() {
     }
   };
 
+  const handleBatchPrint = async () => {
+    try {
+      const response = await fetch('/api/reports/batch-pdf/generate', {
+        method: 'POST',
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to generate batch PDF');
+      }
+
+      // Download the PDF
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `batch_reports_${new Date().toISOString().split('T')[0]}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast({
+        title: "PDF生成完了",
+        description: "今日承認した報告書をまとめて印刷しました。",
+      });
+    } catch (error: any) {
+      toast({
+        title: "PDF生成エラー",
+        description: error.message || "PDFの生成に失敗しました。",
+        variant: "destructive",
+      });
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     const statusConfig = {
       draft: { label: "下書き", variant: "secondary" as const },
@@ -204,6 +245,19 @@ export default function Home() {
         
         <main className="p-6">
           <div className="space-y-6">
+            {/* Batch Print Button */}
+            {(todayApprovedReports as any[]).length > 0 && (
+              <div className="flex justify-end">
+                <Button 
+                  onClick={handleBatchPrint}
+                  className="bg-primary text-white"
+                >
+                  <Printer className="mr-2 h-4 w-4" />
+                  今日承認した報告書をまとめて印刷 ({(todayApprovedReports as any[]).length}件)
+                </Button>
+              </div>
+            )}
+
             {/* Statistics Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <StatisticsCard
