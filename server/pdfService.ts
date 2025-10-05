@@ -144,6 +144,100 @@ export class PdfService {
     const filepath = this.getPdfPath(filename);
     return fs.existsSync(filepath);
   }
+
+  async generateBatchReportsPdf(reports: ReportPdfData[]): Promise<{ filename: string; filepath: string }> {
+    const today = new Date().toISOString().split('T')[0];
+    const filename = `batch_reports_${today}_${Date.now()}.pdf`;
+    const filepath = path.join(UPLOADS_DIR, filename);
+
+    return new Promise((resolve, reject) => {
+      try {
+        const doc = new PDFDocument({ size: 'A4', margin: 50 });
+        const writeStream = fs.createWriteStream(filepath);
+
+        doc.pipe(writeStream);
+
+        // Cover page
+        doc.fontSize(20).text('電子債権問い合わせ対応報告書', { align: 'center' });
+        doc.fontSize(16).text('まとめ印刷', { align: 'center' });
+        doc.moveDown();
+        doc.fontSize(12).text(`印刷日時: ${new Date().toLocaleString('ja-JP')}`, { align: 'center' });
+        doc.text(`報告書数: ${reports.length}件`, { align: 'center' });
+        doc.addPage();
+
+        // Each report on a new page
+        reports.forEach((data, index) => {
+          if (index > 0) {
+            doc.addPage();
+          }
+
+          // Report header
+          doc.fontSize(18).text('電子債権問い合わせ対応報告書', { align: 'center' });
+          doc.moveDown();
+
+          // Report details
+          doc.fontSize(12);
+          doc.text(`報告書番号: ${data.reportNumber}`);
+          doc.text(`作成日時: ${this.formatDate(data.createdAt)}`);
+          if (data.approvedAt) {
+            doc.text(`承認日時: ${this.formatDate(data.approvedAt)}`);
+          }
+          doc.moveDown();
+
+          // Customer information
+          doc.fontSize(14).text('顧客情報', { underline: true });
+          doc.fontSize(12);
+          doc.text(`利用者番号: ${data.userNumber}`);
+          doc.text(`金融機関コード: ${data.bankCode}`);
+          doc.text(`支店コード: ${data.branchCode}`);
+          doc.text(`会社名: ${data.companyName}`);
+          doc.text(`担当者名: ${data.contactPersonName}`);
+          doc.moveDown();
+
+          // Handler information
+          doc.fontSize(14).text('対応者情報', { underline: true });
+          doc.fontSize(12);
+          doc.text(`対応者: ${data.handlerName}`);
+          doc.text(`承認者: ${data.approverName}`);
+          doc.moveDown();
+
+          // Inquiry content
+          doc.fontSize(14).text('問い合わせ内容', { underline: true });
+          doc.fontSize(12);
+          doc.text(data.inquiryContent, { align: 'left' });
+          doc.moveDown();
+
+          // Response content
+          doc.fontSize(14).text('対応内容', { underline: true });
+          doc.fontSize(12);
+          doc.text(data.responseContent, { align: 'left' });
+          doc.moveDown();
+
+          // Escalation information
+          if (data.escalationRequired) {
+            doc.fontSize(14).text('エスカレーション情報', { underline: true });
+            doc.fontSize(12);
+            doc.text(`エスカレーション: 必要`);
+            if (data.escalationReason) {
+              doc.text(`理由: ${data.escalationReason}`);
+            }
+          }
+        });
+
+        doc.end();
+
+        writeStream.on('finish', () => {
+          resolve({ filename, filepath });
+        });
+
+        writeStream.on('error', (error) => {
+          reject(error);
+        });
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
 }
 
 export const pdfService = new PdfService();

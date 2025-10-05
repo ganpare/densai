@@ -419,6 +419,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Batch PDF Generation - Generate PDF for today's approved reports
+  app.post('/api/reports/batch-pdf/generate', isAuthenticated, async (req: any, res) => {
+    try {
+      const reports = await storage.getTodayApprovedReports();
+      
+      if (reports.length === 0) {
+        return res.status(404).json({ message: "No approved reports found for today" });
+      }
+
+      const pdfDataList = reports.map(report => ({
+        reportNumber: report.reportNumber,
+        userNumber: report.userNumber,
+        bankCode: report.bankCode,
+        branchCode: report.branchCode,
+        companyName: report.companyName,
+        contactPersonName: report.contactPersonName,
+        handlerName: `${report.handler.firstName} ${report.handler.lastName}`,
+        approverName: report.approver ? `${report.approver.firstName} ${report.approver.lastName}` : '',
+        inquiryContent: report.inquiryContent,
+        responseContent: report.responseContent,
+        escalationRequired: report.escalationRequired,
+        escalationReason: report.escalationReason || undefined,
+        approvedAt: report.approvedAt || undefined,
+        createdAt: report.createdAt || 0
+      }));
+
+      const { filename, filepath } = await pdfService.generateBatchReportsPdf(pdfDataList);
+
+      res.download(filepath, filename);
+    } catch (error) {
+      console.error("Error generating batch PDF:", error);
+      res.status(500).json({ message: "Failed to generate batch PDF" });
+    }
+  });
+
   // PDF Download route - Download existing PDF
   app.get('/api/reports/:id/pdf/download', isAuthenticated, async (req: any, res) => {
     try {
