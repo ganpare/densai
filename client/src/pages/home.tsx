@@ -245,56 +245,56 @@ export default function Home() {
         
         <main className="p-6">
           <div className="space-y-6">
-            {/* Batch Print Button */}
-            {(todayApprovedReports as any[]).length > 0 && (
-              <div className="flex justify-end">
-                <Button 
-                  onClick={handleBatchPrint}
-                  className="bg-primary text-white"
-                >
-                  <Printer className="mr-2 h-4 w-4" />
-                  今日承認した報告書をまとめて印刷 ({(todayApprovedReports as any[]).length}件)
-                </Button>
+            {/* Statistics Cards with Batch Print Button */}
+            <div className="space-y-4">
+              {(todayApprovedReports as any[]).length > 0 && (
+                <div className="flex justify-end">
+                  <Button 
+                    onClick={handleBatchPrint}
+                    className="bg-primary text-white hover:bg-primary/90 shadow-md"
+                  >
+                    <Printer className="mr-2 h-4 w-4" />
+                    今日承認した報告書をまとめて印刷 ({(todayApprovedReports as any[]).length}件)
+                  </Button>
+                </div>
+              )}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <StatisticsCard
+                  title="今日の問い合わせ"
+                  value={(statistics as any)?.todayInquiries || 0}
+                  icon={<Phone className="text-primary text-xl" />}
+                  bgColor="bg-primary/10"
+                  loading={statsLoading}
+                  data-testid="card-today-inquiries"
+                />
+                <StatisticsCard
+                  title="承認待ち"
+                  value={(statistics as any)?.pendingApprovals || 0}
+                  icon={<Clock className="text-warning text-xl" />}
+                  bgColor="bg-warning/10"
+                  textColor="text-warning"
+                  loading={statsLoading}
+                  data-testid="card-pending-approvals"
+                />
+                <StatisticsCard
+                  title="今日完了"
+                  value={(statistics as any)?.todayCompleted || 0}
+                  icon={<CheckCircle className="text-success text-xl" />}
+                  bgColor="bg-success/10"
+                  textColor="text-success"
+                  loading={statsLoading}
+                  data-testid="card-today-completed"
+                />
+                <StatisticsCard
+                  title="エスカレーション"
+                  value={(statistics as any)?.escalations || 0}
+                  icon={<AlertTriangle className="text-destructive text-xl" />}
+                  bgColor="bg-destructive/10"
+                  textColor="text-destructive"
+                  loading={statsLoading}
+                  data-testid="card-escalations"
+                />
               </div>
-            )}
-
-            {/* Statistics Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <StatisticsCard
-                title="今日の問い合わせ"
-                value={(statistics as any)?.todayInquiries || 0}
-                icon={<Phone className="text-primary text-xl" />}
-                bgColor="bg-primary/10"
-                loading={statsLoading}
-                data-testid="card-today-inquiries"
-              />
-              <StatisticsCard
-                title="承認待ち"
-                value={(statistics as any)?.pendingApprovals || 0}
-                icon={<Clock className="text-warning text-xl" />}
-                bgColor="bg-warning/10"
-                textColor="text-warning"
-                loading={statsLoading}
-                data-testid="card-pending-approvals"
-              />
-              <StatisticsCard
-                title="今日完了"
-                value={(statistics as any)?.todayCompleted || 0}
-                icon={<CheckCircle className="text-success text-xl" />}
-                bgColor="bg-success/10"
-                textColor="text-success"
-                loading={statsLoading}
-                data-testid="card-today-completed"
-              />
-              <StatisticsCard
-                title="エスカレーション"
-                value={(statistics as any)?.escalations || 0}
-                icon={<AlertTriangle className="text-destructive text-xl" />}
-                bgColor="bg-destructive/10"
-                textColor="text-destructive"
-                loading={statsLoading}
-                data-testid="card-escalations"
-              />
             </div>
 
             {/* Recent Reports Table */}
