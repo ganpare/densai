@@ -205,6 +205,11 @@ export class DatabaseStorage implements IStorage {
       updateData.approverId = approverId;
     }
 
+    // 承認申請時はapproverIdをクリア（誰にも割り当てない）
+    if (statusUpdate.status === 'pending_approval') {
+      updateData.approverId = null;
+    }
+
     if (statusUpdate.status === 'approved') {
       updateData.approvedAt = Math.floor(Date.now() / 1000);
     }
