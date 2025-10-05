@@ -298,7 +298,7 @@ export default function Home() {
             </div>
 
             {/* Recent Reports Table */}
-            <Card>
+            <Card className="shadow-md">
               <CardHeader className="border-b border-border">
                 <div className="flex items-center justify-between">
                   <div>
