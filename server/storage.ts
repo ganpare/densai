@@ -39,6 +39,7 @@ export interface IStorage {
   getReportsByUser(userId: string, status?: string): Promise<ReportWithDetails[]>;
   getReportsForApproval(approverId: string): Promise<ReportWithDetails[]>;
   getApprovedReportsByApprover(approverId: string): Promise<ReportWithDetails[]>;
+  getTodayApprovedReports(): Promise<ReportWithDetails[]>;
   getAllReports(limit?: number, offset?: number): Promise<ReportWithDetails[]>;
   searchReports(query: string): Promise<ReportWithDetails[]>;
   
@@ -344,6 +345,44 @@ export class DatabaseStorage implements IStorage {
         and(
           eq(reports.approverId, approverId),
           eq(reports.status, "approved")
+        )
+      )
+      .orderBy(desc(reports.approvedAt));
+
+    return result.map(row => ({
+      ...row.report,
+      handler: row.handler,
+      approver: row.approver as User,
+    }));
+  }
+
+  async getTodayApprovedReports(): Promise<ReportWithDetails[]> {
+    const today = new Date();
+    const startOfDay = Math.floor(new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime() / 1000);
+    const endOfDay = Math.floor(new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).getTime() / 1000);
+
+    const result = await db
+      .select({
+        report: reports,
+        handler: users,
+        approver: {
+          id: sql`approver.id`,
+          firstName: sql`approver.first_name`,
+          lastName: sql`approver.last_name`,
+          role: sql`approver.role`,
+          approvalLevel: sql`approver.approval_level`,
+          createdAt: sql`approver.created_at`,
+          updatedAt: sql`approver.updated_at`,
+        },
+      })
+      .from(reports)
+      .innerJoin(users, eq(reports.handlerId, users.id))
+      .innerJoin(sql`users as approver`, sql`${reports.approverId} = approver.id`)
+      .where(
+        and(
+          eq(reports.status, "approved"),
+          sql`${reports.approvedAt} >= ${startOfDay}`,
+          sql`${reports.approvedAt} < ${endOfDay}`
         )
       )
       .orderBy(desc(reports.approvedAt));
