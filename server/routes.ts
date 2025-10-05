@@ -180,7 +180,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (search) {
         reports = await storage.searchReports(search as string);
       } else if (user.role === 'approver') {
-        reports = await storage.getReportsForApproval(userId);
+        // 承認者は自分が承認した報告書を表示
+        reports = await storage.getApprovedReportsByApprover(userId);
       } else {
         reports = await storage.getReportsByUser(userId, status as string);
       }

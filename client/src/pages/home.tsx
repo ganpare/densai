@@ -138,15 +138,23 @@ export default function Home() {
               <CardHeader className="border-b border-border">
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle>最近の報告書</CardTitle>
-                    <CardDescription>あなたが作成・担当した報告書の一覧</CardDescription>
+                    <CardTitle>
+                      {(user as any)?.role === 'approver' ? '承認した報告書' : '最近の報告書'}
+                    </CardTitle>
+                    <CardDescription>
+                      {(user as any)?.role === 'approver' 
+                        ? 'あなたが承認した報告書の一覧' 
+                        : 'あなたが作成・担当した報告書の一覧'}
+                    </CardDescription>
                   </div>
-                  <Link href="/reports/new">
-                    <Button data-testid="button-create-report">
-                      <Plus className="mr-2 h-4 w-4" />
-                      新規作成
-                    </Button>
-                  </Link>
+                  {(user as any)?.role !== 'approver' && (
+                    <Link href="/reports/new">
+                      <Button data-testid="button-create-report">
+                        <Plus className="mr-2 h-4 w-4" />
+                        新規作成
+                      </Button>
+                    </Link>
+                  )}
                 </div>
               </CardHeader>
               <CardContent className="p-0">
