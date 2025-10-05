@@ -45,7 +45,7 @@ export interface IStorage {
   getReportStatistics(): Promise<{
     todayInquiries: number;
     pendingApprovals: number;
-    monthlyCompleted: number;
+    todayCompleted: number;
     escalations: number;
   }>;
   
@@ -391,19 +391,17 @@ export class DatabaseStorage implements IStorage {
   async getReportStatistics(): Promise<{
     todayInquiries: number;
     pendingApprovals: number;
-    monthlyCompleted: number;
+    todayCompleted: number;
     escalations: number;
   }> {
     const today = new Date();
     const startOfDay = Math.floor(new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime() / 1000);
     const endOfDay = Math.floor(new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).getTime() / 1000);
-    
-    const startOfMonth = Math.floor(new Date(today.getFullYear(), today.getMonth(), 1).getTime() / 1000);
 
     const [
       todayResult,
       pendingResult,
-      monthlyResult,
+      todayCompletedResult,
       escalationResult
     ] = await Promise.all([
       db.select({ count: count() }).from(reports).where(
@@ -416,7 +414,8 @@ export class DatabaseStorage implements IStorage {
       db.select({ count: count() }).from(reports).where(
         and(
           eq(reports.status, "approved"),
-          sql`${reports.createdAt} >= ${startOfMonth}`
+          sql`${reports.approvedAt} >= ${startOfDay}`,
+          sql`${reports.approvedAt} < ${endOfDay}`
         )
       ),
   db.select({ count: count() }).from(reports).where(eq(reports.escalationRequired, true))
@@ -425,7 +424,7 @@ export class DatabaseStorage implements IStorage {
     return {
       todayInquiries: todayResult[0]?.count || 0,
       pendingApprovals: pendingResult[0]?.count || 0,
-      monthlyCompleted: monthlyResult[0]?.count || 0,
+      todayCompleted: todayCompletedResult[0]?.count || 0,
       escalations: escalationResult[0]?.count || 0,
     };
   }

@@ -114,13 +114,13 @@ export default function Home() {
                 data-testid="card-pending-approvals"
               />
               <StatisticsCard
-                title="今月完了"
-                value={(statistics as any)?.monthlyCompleted || 0}
+                title="今日完了"
+                value={(statistics as any)?.todayCompleted || 0}
                 icon={<CheckCircle className="text-success text-xl" />}
                 bgColor="bg-success/10"
                 textColor="text-success"
                 loading={statsLoading}
-                data-testid="card-monthly-completed"
+                data-testid="card-today-completed"
               />
               <StatisticsCard
                 title="エスカレーション"
