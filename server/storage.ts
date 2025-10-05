@@ -34,7 +34,7 @@ export interface IStorage {
   // Report operations
   createReport(report: InsertReport): Promise<Report>;
   updateReport(id: string, report: Partial<InsertReport>): Promise<Report>;
-  updateReportStatus(id: string, status: UpdateReportStatus): Promise<Report>;
+  updateReportStatus(id: string, status: UpdateReportStatus, approverId?: string): Promise<Report>;
   getReport(id: string): Promise<ReportWithDetails | undefined>;
   getReportsByUser(userId: string, status?: string): Promise<ReportWithDetails[]>;
   getReportsForApproval(approverId: string): Promise<ReportWithDetails[]>;
@@ -194,11 +194,16 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
-  async updateReportStatus(id: string, statusUpdate: UpdateReportStatus): Promise<Report> {
+  async updateReportStatus(id: string, statusUpdate: UpdateReportStatus, approverId?: string): Promise<Report> {
     const updateData: any = {
       status: statusUpdate.status,
       updatedAt: Math.floor(Date.now() / 1000),
     };
+
+    // 承認または差し戻し時に承認者IDを記録
+    if ((statusUpdate.status === 'approved' || statusUpdate.status === 'rejected') && approverId) {
+      updateData.approverId = approverId;
+    }
 
     if (statusUpdate.status === 'approved') {
       updateData.approvedAt = Math.floor(Date.now() / 1000);
@@ -206,20 +211,6 @@ export class DatabaseStorage implements IStorage {
 
     if (statusUpdate.rejectionReason) {
       updateData.rejectionReason = statusUpdate.rejectionReason;
-    }
-
-    // 承認申請時に承認者を自動割り当て
-    if (statusUpdate.status === 'pending_approval') {
-      // 承認権限レベル2の承認者を取得
-      const approvers = await db
-        .select()
-        .from(users)
-        .where(and(eq(users.role, 'approver'), eq(users.approvalLevel, 2)))
-        .limit(1);
-      
-      if (approvers.length > 0) {
-        updateData.approverId = approvers[0].id;
-      }
     }
 
     const [updated] = await db
@@ -296,16 +287,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getReportsForApproval(approverId: string): Promise<ReportWithDetails[]> {
+    // 承認権限を持つ人なら誰でも承認待ち報告書を見られる
     const result = await db
       .select({
         report: reports,
         handler: users,
         approver: {
           id: sql`approver.id`,
-
           firstName: sql`approver.first_name`,
           lastName: sql`approver.last_name`,
-
           role: sql`approver.role`,
           approvalLevel: sql`approver.approval_level`,
           createdAt: sql`approver.created_at`,
@@ -314,8 +304,8 @@ export class DatabaseStorage implements IStorage {
       })
       .from(reports)
       .innerJoin(users, eq(reports.handlerId, users.id))
-      .innerJoin(sql`users as approver`, sql`${reports.approverId} = approver.id`)
-      .where(and(eq(reports.approverId, approverId), eq(reports.status, "pending_approval")))
+      .leftJoin(sql`users as approver`, sql`${reports.approverId} = approver.id`)
+      .where(eq(reports.status, "pending_approval"))
       .orderBy(desc(reports.createdAt));
 
     return result.map(row => ({
