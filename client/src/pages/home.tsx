@@ -399,75 +399,82 @@ export default function Home() {
 
             {/* Pending Approvals Section for Approvers */}
             {((user as any)?.role === 'approver' || (user as any)?.role === 'admin') && (
-              <Card>
-                <CardHeader className="border-b border-border">
-                  <CardTitle>承認待ち報告書</CardTitle>
+              <Card className="shadow-md">
+                <CardHeader className="border-b border-border bg-warning/5">
+                  <CardTitle className="flex items-center gap-2">
+                    <Clock className="h-5 w-5 text-warning" />
+                    承認待ち報告書
+                  </CardTitle>
                   <CardDescription>承認が必要な報告書の一覧</CardDescription>
                 </CardHeader>
                 <CardContent className="p-0">
                   {pendingLoading ? (
-                    <div className="py-8 text-center">
-                      <div className="animate-pulse">読み込み中...</div>
+                    <div className="py-12 text-center">
+                      <div className="animate-pulse text-muted-foreground">読み込み中...</div>
                     </div>
                   ) : (pendingReports as any[]).length === 0 ? (
-                    <div className="py-8 text-center text-muted-foreground">
+                    <div className="py-12 text-center text-muted-foreground">
                       承認待ちの報告書はありません
                     </div>
                   ) : (
                     <div className="divide-y divide-border">
                       {(pendingReports as ReportWithDetails[]).slice(0, 5).map((report: ReportWithDetails) => (
-                        <div key={report.id} className="p-4 hover:bg-accent/50">
-                          <div className="flex items-start justify-between mb-3">
-                            <div>
-                              <h3 className="font-semibold">{report.reportNumber}</h3>
-                              <p className="text-sm text-muted-foreground">
+                        <div key={report.id} className="p-6 hover:bg-accent/30 transition-colors">
+                          <div className="flex items-start justify-between mb-4">
+                            <div className="space-y-1">
+                              <h3 className="font-semibold text-lg">{report.reportNumber}</h3>
+                              <p className="text-sm text-muted-foreground flex items-center gap-1">
+                                <Clock className="h-3 w-3" />
                                 提出日時: {formatDateTime(report.createdAt)}
                               </p>
                             </div>
-                            <Badge variant="secondary" className="bg-warning/10 text-warning">
+                            <Badge variant="secondary" className="bg-warning/15 text-warning border-warning/30">
                               承認待ち
                             </Badge>
                           </div>
                           
-                          <div className="grid grid-cols-2 gap-2 mb-3 text-sm">
+                          <div className="grid grid-cols-2 gap-4 mb-4 p-3 bg-accent/20 rounded-md">
                             <div>
-                              <span className="font-medium text-muted-foreground">企業名:</span>
-                              <p>{report.companyName}</p>
+                              <span className="text-xs font-medium text-muted-foreground uppercase">企業名</span>
+                              <p className="font-medium mt-1">{report.companyName}</p>
                             </div>
                             <div>
-                              <span className="font-medium text-muted-foreground">対応者:</span>
-                              <p>{report.handler.firstName} {report.handler.lastName}</p>
+                              <span className="text-xs font-medium text-muted-foreground uppercase">対応者</span>
+                              <p className="font-medium mt-1">{report.handler.firstName} {report.handler.lastName}</p>
                             </div>
                           </div>
                           
-                          <div className="flex items-center justify-end space-x-2">
+                          <div className="flex items-center justify-between">
                             <Button 
                               variant="ghost" 
                               size="sm"
                               onClick={() => setSelectedReport(report)}
+                              className="hover:bg-accent"
                             >
-                              <Eye className="mr-1 h-4 w-4" />
-                              詳細
+                              <Eye className="mr-2 h-4 w-4" />
+                              詳細を見る
                             </Button>
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => handleReject(report.id)}
-                              disabled={rejectMutation.isPending}
-                              className="border-destructive text-destructive hover:bg-destructive/10"
-                            >
-                              <XCircle className="mr-1 h-4 w-4" />
-                              差し戻し
-                            </Button>
-                            <Button 
-                              size="sm"
-                              onClick={() => handleApprove(report.id)}
-                              disabled={approveMutation.isPending}
-                              className="bg-success text-white hover:bg-success/90"
-                            >
-                              <CheckCircle className="mr-1 h-4 w-4" />
-                              承認
-                            </Button>
+                            <div className="flex items-center gap-2">
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => handleReject(report.id)}
+                                disabled={rejectMutation.isPending}
+                                className="border-destructive text-destructive hover:bg-destructive/10"
+                              >
+                                <XCircle className="mr-2 h-4 w-4" />
+                                差し戻し
+                              </Button>
+                              <Button 
+                                size="sm"
+                                onClick={() => handleApprove(report.id)}
+                                disabled={approveMutation.isPending}
+                                className="bg-success text-white hover:bg-success/90 shadow-sm"
+                              >
+                                <CheckCircle className="mr-2 h-4 w-4" />
+                                承認する
+                              </Button>
+                            </div>
                           </div>
                         </div>
                       ))}
