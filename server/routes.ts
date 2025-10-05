@@ -241,18 +241,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       const userId = req.user.claims.sub;
       
-      // Check if report exists and user is the approver
+      // Check if report exists
       const existingReport = await storage.getReport(id);
       if (!existingReport) {
         return res.status(404).json({ message: "Report not found" });
       }
 
-      if (existingReport.approverId !== userId) {
-        return res.status(403).json({ message: "Not authorized to approve this report" });
+      // Check if user has approval permission
+      const user = await storage.getUser(userId);
+      if (!user || (user.role !== 'approver' && user.role !== 'admin')) {
+        return res.status(403).json({ message: "Not authorized to approve reports" });
       }
 
       const validatedData = updateReportStatusSchema.parse(req.body);
-      const updatedReport = await storage.updateReportStatus(id, validatedData);
+      // 承認時に承認者IDを渡す
+      const updatedReport = await storage.updateReportStatus(id, validatedData, userId);
       res.json(updatedReport);
     } catch (error) {
       if (error instanceof z.ZodError) {
