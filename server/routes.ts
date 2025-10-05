@@ -267,6 +267,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get reports pending approval
+  app.get('/api/reports/pending', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      // Check if user has approval permission
+      const user = await storage.getUser(userId);
+      if (!user || (user.role !== 'approver' && user.role !== 'admin')) {
+        return res.status(403).json({ message: "Not authorized to view pending approvals" });
+      }
+
+      const reports = await storage.getReportsForApproval(userId);
+      res.json(reports);
+    } catch (error) {
+      console.error("Error fetching pending reports:", error);
+      res.status(500).json({ message: "Failed to fetch pending reports" });
+    }
+  });
+
   // Submit report for approval
   app.patch('/api/reports/:id/submit', isAuthenticated, async (req: any, res) => {
     try {
