@@ -335,6 +335,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get today's approved reports
+  app.get('/api/reports/today-approved', isAuthenticated, async (req: any, res) => {
+    try {
+      const reports = await storage.getTodayApprovedReports();
+      res.json(reports);
+    } catch (error) {
+      console.error("Error fetching today's approved reports:", error);
+      res.status(500).json({ message: "Failed to fetch today's approved reports" });
+    }
+  });
+
   // PDF Generation route - Generate and save PDF on server
   app.post('/api/reports/:id/pdf/generate', isAuthenticated, async (req: any, res) => {
     try {
