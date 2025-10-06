@@ -1,4 +1,5 @@
-import puppeteer from 'puppeteer';
+// NOTE: puppeteer はサイズが大きく環境依存のため、起動時に必須ロードせず
+// 利用箇所で動的インポートする
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -480,7 +481,8 @@ export class PdfService {
     const filepath = path.join(UPLOADS_DIR, filename);
 
     const html = this.generateReportHtml(data);
-    
+
+    const puppeteer = (await import('puppeteer')).default;
     const browser = await puppeteer.launch({
       headless: true,
       args: ['--no-sandbox', '--disable-setuid-sandbox']
@@ -514,7 +516,8 @@ export class PdfService {
     const filepath = path.join(UPLOADS_DIR, filename);
 
     const html = this.generateBatchReportsHtml(reports);
-    
+
+    const puppeteer = (await import('puppeteer')).default;
     const browser = await puppeteer.launch({
       headless: true,
       args: ['--no-sandbox', '--disable-setuid-sandbox']
