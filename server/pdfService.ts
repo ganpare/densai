@@ -2,6 +2,11 @@ import PDFDocument from 'pdfkit';
 import fs from 'fs';
 import path from 'path';
 import { randomUUID } from 'crypto';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const UPLOADS_DIR = 'uploads/pdfs';
 const FONT_PATH = path.join(__dirname, 'assets', 'fonts', 'NotoSansJP-Regular.ttf');
