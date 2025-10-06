@@ -227,12 +227,25 @@ export class PdfService {
 
         doc.pipe(writeStream);
 
+        // Register Japanese font
+        this.registerFont(doc);
+
         // Cover page
-        doc.fontSize(20).text('電子債権問い合わせ対応報告書', { align: 'center' });
+        doc.fontSize(20).font('NotoSansJP').fillColor('#000000');
+        doc.text('電子債権問い合わせ対応報告書', { align: 'center' });
         doc.fontSize(16).text('まとめ印刷', { align: 'center' });
-        doc.moveDown();
-        doc.fontSize(12).text(`印刷日時: ${new Date().toLocaleString('ja-JP')}`, { align: 'center' });
-        doc.text(`報告書数: ${reports.length}件`, { align: 'center' });
+        doc.moveDown(2);
+        
+        const pageWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
+        const boxY = doc.y;
+        const boxHeight = 80;
+        
+        // Draw info box
+        doc.rect(doc.page.margins.left, boxY, pageWidth, boxHeight).stroke();
+        doc.fontSize(12).font('NotoSansJP');
+        doc.text(`印刷日時: ${new Date().toLocaleString('ja-JP')}`, doc.page.margins.left + 20, boxY + 20);
+        doc.text(`報告書数: ${reports.length}件`, doc.page.margins.left + 20, boxY + 45);
+        
         doc.addPage();
 
         // Each report on a new page
@@ -241,55 +254,51 @@ export class PdfService {
             doc.addPage();
           }
 
-          // Report header
-          doc.fontSize(18).text('電子債権問い合わせ対応報告書', { align: 'center' });
-          doc.moveDown();
+          // Title
+          doc.fontSize(18).font('NotoSansJP').fillColor('#000000');
+          doc.text('電子債権問い合わせ対応報告書', { align: 'center' });
+          doc.moveDown(2);
 
-          // Report details
-          doc.fontSize(12);
-          doc.text(`報告書番号: ${data.reportNumber}`);
-          doc.text(`作成日時: ${this.formatDate(data.createdAt)}`);
+          let y = doc.y;
+
+          // Report details section
+          y = this.drawSectionHeader(doc, '報告書情報', y);
+          y = this.drawLabelValueRow(doc, '報告書番号', data.reportNumber, y);
+          y = this.drawLabelValueRow(doc, '作成日時', this.formatDate(data.createdAt), y);
           if (data.approvedAt) {
-            doc.text(`承認日時: ${this.formatDate(data.approvedAt)}`);
+            y = this.drawLabelValueRow(doc, '承認日時', this.formatDate(data.approvedAt), y);
           }
-          doc.moveDown();
+          y += 20;
 
           // Customer information
-          doc.fontSize(14).text('顧客情報', { underline: true });
-          doc.fontSize(12);
-          doc.text(`利用者番号: ${data.userNumber}`);
-          doc.text(`金融機関コード: ${data.bankCode}`);
-          doc.text(`支店コード: ${data.branchCode}`);
-          doc.text(`会社名: ${data.companyName}`);
-          doc.text(`担当者名: ${data.contactPersonName}`);
-          doc.moveDown();
+          y = this.drawSectionHeader(doc, '顧客情報', y);
+          y = this.drawLabelValueRow(doc, '利用者番号', data.userNumber, y);
+          y = this.drawLabelValueRow(doc, '金融機関コード', data.bankCode, y);
+          y = this.drawLabelValueRow(doc, '支店コード', data.branchCode, y);
+          y = this.drawLabelValueRow(doc, '会社名', data.companyName, y);
+          y = this.drawLabelValueRow(doc, '担当者名', data.contactPersonName, y);
+          y += 20;
 
           // Handler information
-          doc.fontSize(14).text('対応者情報', { underline: true });
-          doc.fontSize(12);
-          doc.text(`対応者: ${data.handlerName}`);
-          doc.text(`承認者: ${data.approverName}`);
-          doc.moveDown();
+          y = this.drawSectionHeader(doc, '対応者情報', y);
+          y = this.drawLabelValueRow(doc, '対応者', data.handlerName, y);
+          y = this.drawLabelValueRow(doc, '承認者', data.approverName, y);
+          y += 20;
 
           // Inquiry content
-          doc.fontSize(14).text('問い合わせ内容', { underline: true });
-          doc.fontSize(12);
-          doc.text(data.inquiryContent, { align: 'left' });
-          doc.moveDown();
+          y = this.drawTextBox(doc, '問い合わせ内容', data.inquiryContent, y);
+          y += 20;
 
           // Response content
-          doc.fontSize(14).text('対応内容', { underline: true });
-          doc.fontSize(12);
-          doc.text(data.responseContent, { align: 'left' });
-          doc.moveDown();
+          y = this.drawTextBox(doc, '対応内容', data.responseContent, y);
+          y += 20;
 
           // Escalation information
           if (data.escalationRequired) {
-            doc.fontSize(14).text('エスカレーション情報', { underline: true });
-            doc.fontSize(12);
-            doc.text(`エスカレーション: 必要`);
+            y = this.drawSectionHeader(doc, 'エスカレーション情報', y);
+            y = this.drawLabelValueRow(doc, 'エスカレーション', '必要', y);
             if (data.escalationReason) {
-              doc.text(`理由: ${data.escalationReason}`);
+              y = this.drawLabelValueRow(doc, '理由', data.escalationReason, y);
             }
           }
         });
