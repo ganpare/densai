@@ -1,3 +1,12 @@
+node_modules/
+dist/
+uploads/pdfs/*
+!uploads/pdfs/.gitkeep
+.env
+.DS_Store
+*.log
+coverage/
+tmp/
 node_modules
 dist
 .DS_Store
