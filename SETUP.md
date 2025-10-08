@@ -1,245 +1,141 @@
-# 電子債権問い合わせ対応報告書システム - WSL セットアップ手順
+# 電子債権問い合わせ対応報告書システム - セットアップガイド
 
 ## 概要
 
-このシステムは日本の金融機関向けの電子債権問い合わせ対応報告書管理システムです。オフライン環境での運用を想定し、ユーザー名/パスワード認証とSQLiteデータベースを使用します。
+このリポジトリは日本の金融機関向けの電子債権問い合わせ対応報告書管理システムです。Express と React を使ったフルスタック構成で、SQLite データベースにデータを保存します。本書では開発環境のセットアップと Docker コンテナでの実行方法を説明します。
 
-## システム要件
+---
 
-- Windows 10/11 with WSL2
-- Node.js 18以上
-- npm
+## 必要要件
+
+- Node.js 20 以上
+- npm 10 以上
 - Git
+- （任意）Docker 24 以上
 
-## 1. WSL環境の準備
+> **補足:** WSL2 上でも同じ手順で動作します。以前の WSL 専用手順は本ガイドに統合しました。
 
-### WSL2のインストール（未インストールの場合）
+---
 
-```powershell
-# PowerShellを管理者権限で実行
-wsl --install
-```
+## ローカル開発環境の準備
 
-### Ubuntu 22.04 LTSの使用を推奨
-
-```powershell
-wsl --install -d Ubuntu-22.04
-```
-
-## 2. 必要なソフトウェアのインストール
-
-### Node.js 20のインストール
+### 1. リポジトリの取得
 
 ```bash
-# NodeSourceリポジトリの追加
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-
-# Node.jsのインストール
-sudo apt-get install -y nodejs
-
-# バージョン確認
-node --version
-npm --version
-```
-
-### Gitのインストール
-
-```bash
-sudo apt-get update
-sudo apt-get install git
-```
-
-## 3. プロジェクトのクローン
-
-```bash
-# プロジェクトをクローン
 git clone <repository-url>
-cd <project-directory>
+cd <repository-directory>
 ```
 
-## 4. 依存関係のインストール
+### 2. 依存パッケージのインストール
 
 ```bash
-# npm依存関係のインストール
 npm install
 ```
 
-## 5. 環境変数の設定
+### 3. 環境変数の設定
+
+`.env` ファイルは必須ではありませんが、セッション情報の暗号化に `SESSION_SECRET` を設定することを推奨します。
 
 ```bash
-# .envファイルの作成
-cp .env.example .env
-
-# 必要に応じて.envファイルを編集
-nano .env
+cp .env.example .env   # ファイルが存在する場合
+# もしくは新規で作成
 ```
 
-### 必要な環境変数
+推奨値:
 
 ```env
-# セッション秘密鍵（ランダムな文字列を設定）
-SESSION_SECRET=your-super-secret-session-key-here
-
-# データベース設定（SQLite使用）
-DATABASE_URL=file:./database.sqlite
-
-# 開発環境設定
-NODE_ENV=development
+SESSION_SECRET=任意の長いランダム文字列
+PORT=5000
 ```
 
-## 6. データベースの初期化
+`.env` を使用しない場合は、直接環境変数をエクスポートしてください。
+
+### 4. データベース
+
+アプリケーション起動時に `database.sqlite` が存在しない場合は自動で生成され、初期ユーザーが投入されます。追加のマイグレーションコマンドは不要です。
+
+### 5. 開発サーバーの起動
 
 ```bash
-# データベースマイグレーション
-npm run db:push
-
-# 初期データの投入（オプション）
-npm run db:seed
-```
-
-## 7. 開発サーバーの起動
-
-```bash
-# 開発サーバー起動
 npm run dev
 ```
 
-アプリケーションは `http://localhost:5000` でアクセス可能になります。
+開発サーバーは `http://localhost:5000` で API とフロントエンドを同時に提供します。Vite のホットリロードが有効です。
 
-## 8. 初期ユーザーの作成
-
-### デフォルトユーザー
-
-システムには以下のデフォルトユーザーが用意されています：
-
-| ユーザー名 | パスワード | 役割 | 承認レベル |
-|-----------|-----------|------|-----------|
-| tanaka | password123 | creator | 1 |
-| sato | password123 | approver | 2 |
-| suzuki | password123 | approver | 3 |
-| takahashi | password123 | admin | 4 |
-| tamura | password123 | admin | 5 |
-
-### 新規ユーザーの追加
-
-管理者権限でログイン後、「ユーザー管理」画面から新規ユーザーを追加できます。
-
-## 9. システムの使用方法
-
-### 基本的なワークフロー
-
-1. **報告書作成** - 作成者が新規報告書を作成
-2. **承認申請** - 作成者が承認者に申請を提出
-3. **承認処理** - 承認者が報告書を承認または差し戻し
-4. **PDF出力** - 承認済み報告書のPDF生成
-5. **印刷** - 金庫連携プリンターでの印刷
-
-### 役割と権限
-
-- **作成者（Creator）**: 報告書の作成・編集
-- **承認者（Approver）**: 報告書の承認・差し戻し
-- **管理者（Admin）**: 全ての機能 + ユーザー管理
-
-## 10. トラブルシューティング
-
-### ポート競合エラー
+### 6. プロダクションビルド
 
 ```bash
-# ポート5000が使用中の場合
-sudo lsof -i :5000
-sudo kill -9 <PID>
-```
-
-### データベース接続エラー
-
-```bash
-# データベースファイルの権限確認
-ls -la database.sqlite
-
-# 権限修正
-chmod 644 database.sqlite
-```
-
-### Node.jsモジュールエラー
-
-```bash
-# node_modulesの再インストール
-rm -rf node_modules
-rm package-lock.json
-npm install
-```
-
-## 11. 本番環境での運用
-
-### 環境変数の設定
-
-```env
-NODE_ENV=production
-SESSION_SECRET=production-secret-key
-DATABASE_URL=file:./production.sqlite
-```
-
-### プロダクションビルド
-
-```bash
-# プロダクション用ビルド
 npm run build
-
-# プロダクションサーバー起動
 npm start
 ```
 
-### システムサービス化（systemd）
+`npm start` はビルド済み成果物 (`dist/index.js`) を使ってアプリケーションを `PORT` で公開します。
+
+---
+
+## Docker での実行
+
+Docker を使うと Node.js をローカルにインストールせずにアプリケーションを起動できます。
+
+### 1. イメージのビルド
 
 ```bash
-# サービスファイルの作成
-sudo nano /etc/systemd/system/bond-report-system.service
+docker build -t densai-app .
 ```
 
-```ini
-[Unit]
-Description=Electronic Bond Report System
-After=network.target
-
-[Service]
-Type=simple
-User=your-username
-WorkingDirectory=/path/to/your/project
-Environment=NODE_ENV=production
-ExecStart=/usr/bin/npm start
-Restart=always
-
-[Install]
-WantedBy=multi-user.target
-```
+### 2. コンテナの起動
 
 ```bash
-# サービスの有効化と起動
-sudo systemctl enable bond-report-system
-sudo systemctl start bond-report-system
-sudo systemctl status bond-report-system
+docker run --rm -p 5000:5000 \
+  -e SESSION_SECRET="任意の長いランダム文字列" \
+  -e PORT=5000 \
+  -e HOST=0.0.0.0 \
+  densai-app
 ```
 
-## 12. バックアップとメンテナンス
+ブラウザから `http://localhost:5000` にアクセスするとアプリケーションを利用できます。
 
-### データベースバックアップ
+#### データ永続化
+
+SQLite ファイルをホストに永続化したい場合はボリュームをマウントしてください。
 
 ```bash
-# SQLiteデータベースのバックアップ
-cp database.sqlite backup/database_$(date +%Y%m%d_%H%M%S).sqlite
+docker run --rm -p 5000:5000 \
+  -v $(pwd)/data:/app/data \
+  -e DATABASE_URL="file:./data/database.sqlite" \
+  -e SESSION_SECRET="任意の長いランダム文字列" \
+  -e HOST=0.0.0.0 \
+  densai-app
 ```
 
-### ログ監視
+コンテナ内の `DATABASE_URL` を上記のように変更すると、`/app/data` 以下に SQLite ファイルが作成されます。
 
-```bash
-# アプリケーションログの確認
-sudo journalctl -u bond-report-system -f
-```
+---
 
-## サポート
+## 初期ユーザー
 
-システムに関する質問や問題がある場合は、開発チームまでお問い合わせください。
+デフォルトで以下のユーザーが用意されています。
 
-## ライセンス
+| ユーザー名 | パスワード | 役割 |
+|------------|------------|------|
+| tanaka     | password123 | handler |
+| sato       | password123 | handler |
+| suzuki     | password123 | approver |
+| takahashi  | password123 | handler / approver |
+| tamura     | password123 | admin |
 
-このソフトウェアは金融機関向けの内部システムとして開発されています。
+---
+
+## トラブルシューティング
+
+| 症状 | 対処方法 |
+|------|----------|
+| ポート `5000` が使用中 | `lsof -i :5000` でプロセスを特定し、終了させる |
+| `better-sqlite3` のビルドに失敗 | `npm install --build-from-source better-sqlite3` を実行する |
+| Docker コンテナにアクセスできない | `docker run` 時に `-p 5000:5000` を指定し、`HOST=0.0.0.0` が設定されていることを確認する |
+
+---
+
+## ライセンスと問い合わせ
+
+本システムは金融機関向けの内部業務支援ツールとして提供されています。問題が発生した場合は開発チームへお問い合わせください。

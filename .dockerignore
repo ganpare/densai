@@ -1,0 +1,12 @@
+node_modules
+npm-debug.log
+Dockerfile
+.dockerignore
+dist
+.git
+.gitignore
+.env
+.env.*
+database.sqlite*
+client/src/**/*.test.*
+**/*.swp
