@@ -1,21 +1,24 @@
 import { sql } from 'drizzle-orm';
 import {
   index,
-  sqliteTable,
+  pgTable,
   text,
   integer,
-} from "drizzle-orm/sqlite-core";
+  boolean,
+  serial,
+  timestamp,
+} from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 // Session storage table for Replit Auth
-export const sessions = sqliteTable(
+export const sessions = pgTable(
   "sessions",
   {
     sid: text("sid").primaryKey(),
     sess: text("sess").notNull(),
-    expire: integer("expire").notNull(),
+    expire: timestamp("expire").notNull(),
   },
   (table) => ({
     expireIdx: index("IDX_session_expire").on(table.expire),
@@ -23,7 +26,7 @@ export const sessions = sqliteTable(
 );
 
 // User storage table with username/password auth
-export const users = sqliteTable("users", {
+export const users = pgTable("users", {
   id: text("id").primaryKey(),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
@@ -35,7 +38,7 @@ export const users = sqliteTable("users", {
 });
 
 // Financial institution master data
-export const financialInstitutions = sqliteTable("financial_institutions", {
+export const financialInstitutions = pgTable("financial_institutions", {
   id: text("id").primaryKey(),
   bankCode: text("bank_code").notNull().unique(),
   bankName: text("bank_name").notNull(),
@@ -43,7 +46,7 @@ export const financialInstitutions = sqliteTable("financial_institutions", {
 });
 
 // Branches of financial institutions
-export const branches = sqliteTable("branches", {
+export const branches = pgTable("branches", {
   id: text("id").primaryKey(),
   institutionId: text("institution_id").notNull().references(() => financialInstitutions.id),
   branchCode: text("branch_code").notNull(),
@@ -52,7 +55,7 @@ export const branches = sqliteTable("branches", {
 });
 
 // Inquiry response reports
-export const reports = sqliteTable("reports", {
+export const reports = pgTable("reports", {
   id: text("id").primaryKey(),
   reportNumber: text("report_number").notNull().unique(),
   userNumber: text("user_number").notNull(),
@@ -64,10 +67,11 @@ export const reports = sqliteTable("reports", {
   approverId: text("approver_id").references(() => users.id),
   inquiryContent: text("inquiry_content").notNull(),
   responseContent: text("response_content").notNull(),
-  escalationRequired: integer("escalation_required", { mode: 'boolean' }).notNull().default(false),
+  escalationRequired: boolean("escalation_required").notNull().default(false),
   escalationReason: text("escalation_reason"),
   status: text("status").notNull().default("draft"), // draft, pending_approval, approved, rejected
   rejectionReason: text("rejection_reason"),
+  pdfFilePath: text("pdf_file_path"),
   approvedAt: integer("approved_at"),
   createdAt: integer("created_at"),
   updatedAt: integer("updated_at"),

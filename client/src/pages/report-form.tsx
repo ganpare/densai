@@ -18,7 +18,7 @@ import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import Sidebar from "@/components/layout/sidebar";
 import Header from "@/components/layout/header";
-import { insertReportSchema, submitReportForApprovalSchema } from "@shared/schema";
+import { insertReportSchema } from "@shared/schema";
 import { ArrowLeft, Save, Send } from "lucide-react";
 
 const reportFormSchema = insertReportSchema.extend({
@@ -66,7 +66,7 @@ export default function ReportForm() {
       responseContent: "",
       escalationRequired: false,
       escalationReason: "",
-      handlerId: user?.id || "",
+      handlerId: (user as any)?.id || "",
     },
   });
 
@@ -188,65 +188,29 @@ export default function ReportForm() {
 
   const onSubmit = (data: ReportFormData) => {
     console.log("🚀 onSubmit called with data:", data);
-    
-    // Validate all required fields for approval submission
-    const validationResult = submitReportForApprovalSchema.safeParse(data);
-    
-    if (!validationResult.success) {
-      const errors = validationResult.error.issues;
-      let errorMessage = "以下の必須項目を入力してください：\n";
-      
-      errors.forEach(error => {
-        switch (error.path[0]) {
-          case "userNumber":
-            errorMessage += "• 利用者番号\n";
-            break;
-          case "bankCode":
-            errorMessage += "• 金融機関コード\n";
-            break;
-          case "branchCode":
-            errorMessage += "• 支店コード\n";
-            break;
-          case "companyName":
-            errorMessage += "• 企業名\n";
-            break;
-          case "contactPersonName":
-            errorMessage += "• 連絡者氏名\n";
-            break;
-          case "inquiryContent":
-            errorMessage += "• 問い合わせ内容\n";
-            break;
-          case "responseContent":
-            errorMessage += "• 対応内容\n";
-            break;
-          default:
-            errorMessage += `• ${error.message}\n`;
-        }
-      });
-      
-      toast({
-        title: "入力エラー",
-        description: errorMessage,
-        variant: "destructive",
-      });
-      return;
-    }
-    
     console.log("🔄 submitMutation state:", {
       isPending: submitMutation.isPending,
       isError: submitMutation.isError,
       error: submitMutation.error
     });
     
-    // Prepare data for submission
-    const submissionData = {
-      ...validationResult.data,
-      handlerId: user?.id || "",
+    // Ensure we have all required fields
+    const requiredData = {
+      userNumber: data.userNumber || "",
+      bankCode: data.bankCode || "",
+      branchCode: data.branchCode || "",
+      companyName: data.companyName || "",
+      contactPersonName: data.contactPersonName || "",
+      inquiryContent: data.inquiryContent || "",
+      responseContent: data.responseContent || "",
+      escalationRequired: data.escalationRequired || false,
+      escalationReason: data.escalationReason || "",
+      handlerId: (user as any)?.id || "",
       _submitForApproval: true  // Flag to indicate this is for approval submission
     };
     
-    console.log("📝 Processed data:", submissionData);
-    submitMutation.mutate(submissionData);
+    console.log("📝 Processed data:", requiredData);
+    submitMutation.mutate(requiredData);
   };
 
   const escalationRequired = form.watch("escalationRequired");

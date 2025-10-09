@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: bond_inquiry_postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: bond_inquiry_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  app:
+    build: .
+    container_name: bond_inquiry_app
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/bond_inquiry_db
+      SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET must be set in .env file}
+      NODE_ENV: ${NODE_ENV:-production}
+    ports:
+      - "5000:5000"
+    volumes:
+      # PDFファイルの永続化
+      - ./uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    command: npm start
+
+volumes:
+  postgres_data:
+    driver: local

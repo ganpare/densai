@@ -21,7 +21,7 @@ export default function StatisticsCard({
   "data-testid": testId
 }: StatisticsCardProps) {
   return (
-    <Card data-testid={testId}>
+    <Card data-testid={testId} className="shadow-md hover:shadow-lg transition-shadow">
       <CardContent className="p-6">
         <div className="flex items-center justify-between">
           <div>

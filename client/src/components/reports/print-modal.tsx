@@ -9,7 +9,6 @@ import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest } from "@/lib/queryClient";
 import { FileDown, Printer } from "lucide-react";
-import jsPDF from 'jspdf';
 
 interface PrintModalProps {
   reportId: string;
@@ -33,23 +32,44 @@ export default function PrintModal({ reportId, onClose }: PrintModalProps) {
 
   const printers = printersData.printers || [];
 
-  // PDF generation mutation
+  // PDF generation and download mutation
   const generatePdfMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest("GET", `/api/reports/${reportId}/pdf`);
-      const result = await response.json();
+      // Step 1: Generate PDF on server
+      const generateResponse = await apiRequest("POST", `/api/reports/${reportId}/pdf/generate`);
+      const result = await generateResponse.json();
+      
+      if (!result.success) {
+        throw new Error(result.message || "PDF generation failed");
+      }
+      
+      // Step 2: Download the generated PDF
+      const downloadResponse = await fetch(`/api/reports/${reportId}/pdf/download`, {
+        credentials: 'include'
+      });
+      
+      if (!downloadResponse.ok) {
+        throw new Error("PDF download failed");
+      }
+      
+      // Create a blob from the response and trigger download
+      const blob = await downloadResponse.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = result.filename || `report_${reportId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
       return result;
     },
-    onSuccess: (data) => {
-      if (data.success && data.data) {
-        generateAndDownloadPDF(data.data);
-        toast({
-          title: "PDF出力完了",
-          description: "PDFファイルのダウンロードが開始されました。",
-        });
-      } else {
-        throw new Error("PDF data not available");
-      }
+    onSuccess: () => {
+      toast({
+        title: "PDF出力完了",
+        description: "PDFファイルのダウンロードが開始されました。",
+      });
       onClose();
     },
     onError: (error: Error) => {
@@ -118,74 +138,6 @@ export default function PrintModal({ reportId, onClose }: PrintModalProps) {
     }
   };
 
-  // PDF生成関数
-  const generateAndDownloadPDF = (reportData: any) => {
-    const pdf = new jsPDF({
-      orientation: 'portrait',
-      unit: 'mm',
-      format: 'a4'
-    });
-
-    // 日本語フォントの設定が必要な場合は、カスタムフォントを追加
-    
-    // PDFタイトル
-    pdf.setFontSize(16);
-    pdf.text('電子債権問い合わせ対応報告書', 20, 20);
-    
-    // 基本情報
-    pdf.setFontSize(12);
-    let yPos = 40;
-    
-    pdf.text(`報告書番号: ${reportData.reportNumber}`, 20, yPos);
-    yPos += 10;
-    pdf.text(`ユーザー番号: ${reportData.userNumber}`, 20, yPos);
-    yPos += 10;
-    pdf.text(`金庫コード: ${reportData.bankCode}`, 20, yPos);
-    yPos += 10;
-    pdf.text(`支店コード: ${reportData.branchCode}`, 20, yPos);
-    yPos += 10;
-    pdf.text(`企業名: ${reportData.companyName}`, 20, yPos);
-    yPos += 10;
-    pdf.text(`担当者: ${reportData.contactPersonName}`, 20, yPos);
-    yPos += 15;
-    
-    // 問い合わせ内容
-    pdf.text('問い合わせ内容:', 20, yPos);
-    yPos += 10;
-    const inquiryLines = pdf.splitTextToSize(reportData.inquiryContent, 170);
-    pdf.text(inquiryLines, 20, yPos);
-    yPos += inquiryLines.length * 5 + 10;
-    
-    // 回答内容
-    pdf.text('回答内容:', 20, yPos);
-    yPos += 10;
-    const responseLines = pdf.splitTextToSize(reportData.responseContent, 170);
-    pdf.text(responseLines, 20, yPos);
-    yPos += responseLines.length * 5 + 10;
-    
-    // エスカレーション情報
-    if (reportData.escalationRequired) {
-      pdf.text('エスカレーション理由:', 20, yPos);
-      yPos += 10;
-      const escalationLines = pdf.splitTextToSize(reportData.escalationReason || '', 170);
-      pdf.text(escalationLines, 20, yPos);
-      yPos += escalationLines.length * 5 + 10;
-    }
-    
-    // 承認情報
-    pdf.text(`作成者: ${reportData.handlerName}`, 20, yPos);
-    yPos += 10;
-    pdf.text(`承認者: ${reportData.approverName}`, 20, yPos);
-    yPos += 10;
-    
-    if (reportData.approvedAt) {
-      const approvedDate = new Date(reportData.approvedAt * 1000).toLocaleDateString('ja-JP');
-      pdf.text(`承認日時: ${approvedDate}`, 20, yPos);
-    }
-    
-    // PDFをダウンロード
-    pdf.save(`${reportData.bankCode}_${reportData.branchCode}_${reportData.reportNumber}.pdf`);
-  };
 
   const isExecuting = generatePdfMutation.isPending || printMutation.isPending;
 

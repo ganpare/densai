@@ -1,24 +1,32 @@
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import Sidebar from "@/components/layout/sidebar";
 import Header from "@/components/layout/header";
 import StatisticsCard from "@/components/reports/statistics-card";
 import ReportDetailModal from "@/components/reports/report-detail-modal";
 import { ReportWithDetails } from "@shared/schema";
-import { Phone, Clock, CheckCircle, AlertTriangle, Plus, Eye, Edit } from "lucide-react";
+import { Phone, Clock, CheckCircle, AlertTriangle, Plus, Eye, Edit, XCircle, Printer } from "lucide-react";
 
 export default function Home() {
   const { toast } = useToast();
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
   const [selectedReport, setSelectedReport] = useState<ReportWithDetails | null>(null);
+  const [rejectionDialog, setRejectionDialog] = useState<{ open: boolean; reportId: string }>({
+    open: false,
+    reportId: "",
+  });
+  const [rejectionReason, setRejectionReason] = useState("");
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -45,6 +53,149 @@ export default function Home() {
     retry: false,
   });
 
+  const { data: pendingReports = [], isLoading: pendingLoading } = useQuery<ReportWithDetails[]>({
+    queryKey: ["/api/reports", "pending"],
+    enabled: (user as any)?.role === 'approver' || (user as any)?.role === 'admin',
+    retry: false,
+  });
+
+  const { data: todayApprovedReports = [], isLoading: todayApprovedLoading } = useQuery<ReportWithDetails[]>({
+    queryKey: ["/api/reports", "today-approved"],
+    retry: false,
+  });
+
+  // Approve report mutation
+  const approveMutation = useMutation({
+    mutationFn: async (reportId: string) => {
+      return await apiRequest("PATCH", `/api/reports/${reportId}/status`, {
+        status: "approved",
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "承認完了",
+        description: "報告書を承認しました。",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/reports"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/statistics"] });
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+        return;
+      }
+      toast({
+        title: "承認エラー",
+        description: "報告書の承認に失敗しました。",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Reject report mutation
+  const rejectMutation = useMutation({
+    mutationFn: async ({ reportId, reason }: { reportId: string; reason: string }) => {
+      return await apiRequest("PATCH", `/api/reports/${reportId}/status`, {
+        status: "rejected",
+        rejectionReason: reason,
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "差し戻し完了",
+        description: "報告書を差し戻しました。",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/reports"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/statistics"] });
+      setRejectionDialog({ open: false, reportId: "" });
+      setRejectionReason("");
+    },
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+        return;
+      }
+      toast({
+        title: "差し戻しエラー",
+        description: "報告書の差し戻しに失敗しました。",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleApprove = (reportId: string) => {
+    approveMutation.mutate(reportId);
+  };
+
+  const handleReject = (reportId: string) => {
+    setRejectionDialog({ open: true, reportId });
+  };
+
+  const confirmReject = () => {
+    if (rejectionReason.trim()) {
+      rejectMutation.mutate({
+        reportId: rejectionDialog.reportId,
+        reason: rejectionReason.trim(),
+      });
+    } else {
+      toast({
+        title: "入力エラー",
+        description: "差し戻し理由を入力してください。",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleBatchPrint = async () => {
+    try {
+      const response = await fetch('/api/reports/batch-pdf/generate', {
+        method: 'POST',
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to generate batch PDF');
+      }
+
+      // Download the PDF
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `batch_reports_${new Date().toISOString().split('T')[0]}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast({
+        title: "PDF生成完了",
+        description: "今日承認した報告書をまとめて印刷しました。",
+      });
+    } catch (error: any) {
+      toast({
+        title: "PDF生成エラー",
+        description: error.message || "PDFの生成に失敗しました。",
+        variant: "destructive",
+      });
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     const statusConfig = {
       draft: { label: "下書き", variant: "secondary" as const },
@@ -65,8 +216,10 @@ export default function Home() {
     );
   };
 
-  const formatDateTime = (dateString: string) => {
-    return new Date(dateString).toLocaleString('ja-JP', {
+  const formatDateTime = (timestamp: number | null | undefined) => {
+    if (!timestamp) return '-';
+    // Unix timestamp (秒) → ミリ秒に変換
+    return new Date(timestamp * 1000).toLocaleString('ja-JP', {
       year: 'numeric',
       month: '2-digit', 
       day: '2-digit',
@@ -92,59 +245,80 @@ export default function Home() {
         
         <main className="p-6">
           <div className="space-y-6">
-            {/* Statistics Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <StatisticsCard
-                title="今日の問い合わせ"
-                value={(statistics as any)?.todayInquiries || 0}
-                icon={<Phone className="text-primary text-xl" />}
-                bgColor="bg-primary/10"
-                loading={statsLoading}
-                data-testid="card-today-inquiries"
-              />
-              <StatisticsCard
-                title="承認待ち"
-                value={(statistics as any)?.pendingApprovals || 0}
-                icon={<Clock className="text-warning text-xl" />}
-                bgColor="bg-warning/10"
-                textColor="text-warning"
-                loading={statsLoading}
-                data-testid="card-pending-approvals"
-              />
-              <StatisticsCard
-                title="今月完了"
-                value={(statistics as any)?.monthlyCompleted || 0}
-                icon={<CheckCircle className="text-success text-xl" />}
-                bgColor="bg-success/10"
-                textColor="text-success"
-                loading={statsLoading}
-                data-testid="card-monthly-completed"
-              />
-              <StatisticsCard
-                title="エスカレーション"
-                value={(statistics as any)?.escalations || 0}
-                icon={<AlertTriangle className="text-destructive text-xl" />}
-                bgColor="bg-destructive/10"
-                textColor="text-destructive"
-                loading={statsLoading}
-                data-testid="card-escalations"
-              />
+            {/* Statistics Cards with Batch Print Button */}
+            <div className="space-y-4">
+              {(todayApprovedReports as any[]).length > 0 && (
+                <div className="flex justify-end">
+                  <Button 
+                    onClick={handleBatchPrint}
+                    className="bg-primary text-white hover:bg-primary/90 shadow-md"
+                  >
+                    <Printer className="mr-2 h-4 w-4" />
+                    今日承認した報告書をまとめて印刷 ({(todayApprovedReports as any[]).length}件)
+                  </Button>
+                </div>
+              )}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <StatisticsCard
+                  title="今日の問い合わせ"
+                  value={(statistics as any)?.todayInquiries || 0}
+                  icon={<Phone className="text-primary text-xl" />}
+                  bgColor="bg-primary/10"
+                  loading={statsLoading}
+                  data-testid="card-today-inquiries"
+                />
+                <StatisticsCard
+                  title="承認待ち"
+                  value={(statistics as any)?.pendingApprovals || 0}
+                  icon={<Clock className="text-warning text-xl" />}
+                  bgColor="bg-warning/10"
+                  textColor="text-warning"
+                  loading={statsLoading}
+                  data-testid="card-pending-approvals"
+                />
+                <StatisticsCard
+                  title="今日完了"
+                  value={(statistics as any)?.todayCompleted || 0}
+                  icon={<CheckCircle className="text-success text-xl" />}
+                  bgColor="bg-success/10"
+                  textColor="text-success"
+                  loading={statsLoading}
+                  data-testid="card-today-completed"
+                />
+                <StatisticsCard
+                  title="エスカレーション"
+                  value={(statistics as any)?.escalations || 0}
+                  icon={<AlertTriangle className="text-destructive text-xl" />}
+                  bgColor="bg-destructive/10"
+                  textColor="text-destructive"
+                  loading={statsLoading}
+                  data-testid="card-escalations"
+                />
+              </div>
             </div>
 
             {/* Recent Reports Table */}
-            <Card>
+            <Card className="shadow-md">
               <CardHeader className="border-b border-border">
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle>最近の報告書</CardTitle>
-                    <CardDescription>あなたが作成・担当した報告書の一覧</CardDescription>
+                    <CardTitle>
+                      {(user as any)?.role === 'approver' ? '承認した報告書' : '最近の報告書'}
+                    </CardTitle>
+                    <CardDescription>
+                      {(user as any)?.role === 'approver' 
+                        ? 'あなたが承認した報告書の一覧' 
+                        : 'あなたが作成・担当した報告書の一覧'}
+                    </CardDescription>
                   </div>
-                  <Link href="/reports/new">
-                    <Button data-testid="button-create-report">
-                      <Plus className="mr-2 h-4 w-4" />
-                      新規作成
-                    </Button>
-                  </Link>
+                  {(user as any)?.role !== 'approver' && (
+                    <Link href="/reports/new">
+                      <Button data-testid="button-create-report">
+                        <Plus className="mr-2 h-4 w-4" />
+                        新規作成
+                      </Button>
+                    </Link>
+                  )}
                 </div>
               </CardHeader>
               <CardContent className="p-0">
@@ -189,7 +363,7 @@ export default function Home() {
                               {getStatusBadge(report.status)}
                             </TableCell>
                             <TableCell className="text-muted-foreground" data-testid={`text-created-${report.id}`}>
-                              {formatDateTime(report.createdAt?.toString() || '')}
+                              {formatDateTime(report.createdAt)}
                             </TableCell>
                             <TableCell>
                               <div className="flex items-center space-x-2">
@@ -222,6 +396,93 @@ export default function Home() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Pending Approvals Section for Approvers */}
+            {((user as any)?.role === 'approver' || (user as any)?.role === 'admin') && (
+              <Card className="shadow-md">
+                <CardHeader className="border-b border-border bg-warning/5">
+                  <CardTitle className="flex items-center gap-2">
+                    <Clock className="h-5 w-5 text-warning" />
+                    承認待ち報告書
+                  </CardTitle>
+                  <CardDescription>承認が必要な報告書の一覧</CardDescription>
+                </CardHeader>
+                <CardContent className="p-0">
+                  {pendingLoading ? (
+                    <div className="py-12 text-center">
+                      <div className="animate-pulse text-muted-foreground">読み込み中...</div>
+                    </div>
+                  ) : (pendingReports as any[]).length === 0 ? (
+                    <div className="py-12 text-center text-muted-foreground">
+                      承認待ちの報告書はありません
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-border">
+                      {(pendingReports as ReportWithDetails[]).slice(0, 5).map((report: ReportWithDetails) => (
+                        <div key={report.id} className="p-6 hover:bg-accent/30 transition-colors">
+                          <div className="flex items-start justify-between mb-4">
+                            <div className="space-y-1">
+                              <h3 className="font-semibold text-lg">{report.reportNumber}</h3>
+                              <p className="text-sm text-muted-foreground flex items-center gap-1">
+                                <Clock className="h-3 w-3" />
+                                提出日時: {formatDateTime(report.createdAt)}
+                              </p>
+                            </div>
+                            <Badge variant="secondary" className="bg-warning/15 text-warning border-warning/30">
+                              承認待ち
+                            </Badge>
+                          </div>
+                          
+                          <div className="grid grid-cols-2 gap-4 mb-4 p-3 bg-accent/20 rounded-md">
+                            <div>
+                              <span className="text-xs font-medium text-muted-foreground uppercase">企業名</span>
+                              <p className="font-medium mt-1">{report.companyName}</p>
+                            </div>
+                            <div>
+                              <span className="text-xs font-medium text-muted-foreground uppercase">対応者</span>
+                              <p className="font-medium mt-1">{report.handler.firstName} {report.handler.lastName}</p>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center justify-between">
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => setSelectedReport(report)}
+                              className="hover:bg-accent"
+                            >
+                              <Eye className="mr-2 h-4 w-4" />
+                              詳細を見る
+                            </Button>
+                            <div className="flex items-center gap-2">
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => handleReject(report.id)}
+                                disabled={rejectMutation.isPending}
+                                className="border-destructive text-destructive hover:bg-destructive/10"
+                              >
+                                <XCircle className="mr-2 h-4 w-4" />
+                                差し戻し
+                              </Button>
+                              <Button 
+                                size="sm"
+                                onClick={() => handleApprove(report.id)}
+                                disabled={approveMutation.isPending}
+                                className="bg-success text-white hover:bg-success/90 shadow-sm"
+                              >
+                                <CheckCircle className="mr-2 h-4 w-4" />
+                                承認する
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
           </div>
         </main>
       </div>
@@ -230,8 +491,49 @@ export default function Home() {
         <ReportDetailModal
           report={selectedReport}
           onClose={() => setSelectedReport(null)}
+          showApprovalActions={
+            ((user as any)?.role === 'approver' || (user as any)?.role === 'admin') &&
+            selectedReport.status === 'pending_approval'
+          }
+          onApprove={() => handleApprove(selectedReport.id)}
+          onReject={() => handleReject(selectedReport.id)}
         />
       )}
+
+      {/* Rejection Dialog */}
+      <Dialog open={rejectionDialog.open} onOpenChange={(open) => setRejectionDialog({ ...rejectionDialog, open })}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>差し戻し理由</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Textarea
+              placeholder="差し戻し理由を入力してください..."
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
+              className="h-24"
+            />
+            <div className="flex items-center justify-end space-x-2">
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setRejectionDialog({ open: false, reportId: "" });
+                  setRejectionReason("");
+                }}
+              >
+                キャンセル
+              </Button>
+              <Button 
+                onClick={confirmReject}
+                disabled={rejectMutation.isPending || !rejectionReason.trim()}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                差し戻し
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

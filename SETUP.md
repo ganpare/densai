@@ -1,55 +1,31 @@
-# 電子債権問い合わせ対応報告書システム - WSL セットアップ手順
+# 電子債権問い合わせ対応報告書システム - Docker セットアップ手順
 
 ## 概要
 
-このシステムは日本の金融機関向けの電子債権問い合わせ対応報告書管理システムです。オフライン環境での運用を想定し、ユーザー名/パスワード認証とSQLiteデータベースを使用します。
+このシステムは日本の金融機関向けの電子債権問い合わせ対応報告書管理システムです。Docker環境での運用を想定し、ユーザー名/パスワード認証とPostgreSQLデータベースを使用します。
 
 ## システム要件
 
-- Windows 10/11 with WSL2
-- Node.js 18以上
-- npm
+- Docker Desktop（Windows/Mac/Linux）
+- Docker Compose v2.0以上
 - Git
 
-## 1. WSL環境の準備
+## 1. Docker環境の準備
 
-### WSL2のインストール（未インストールの場合）
+### Docker Desktopのインストール
 
-```powershell
-# PowerShellを管理者権限で実行
-wsl --install
-```
+- **Windows**: [Docker Desktop for Windows](https://docs.docker.com/desktop/install/windows-install/)
+- **macOS**: [Docker Desktop for Mac](https://docs.docker.com/desktop/install/mac-install/)
+- **Linux**: [Docker Engine](https://docs.docker.com/engine/install/)
 
-### Ubuntu 22.04 LTSの使用を推奨
-
-```powershell
-wsl --install -d Ubuntu-22.04
-```
-
-## 2. 必要なソフトウェアのインストール
-
-### Node.js 20のインストール
+### インストール確認
 
 ```bash
-# NodeSourceリポジトリの追加
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-
-# Node.jsのインストール
-sudo apt-get install -y nodejs
-
-# バージョン確認
-node --version
-npm --version
+docker --version
+docker-compose --version
 ```
 
-### Gitのインストール
-
-```bash
-sudo apt-get update
-sudo apt-get install git
-```
-
-## 3. プロジェクトのクローン
+## 2. プロジェクトのクローン
 
 ```bash
 # プロジェクトをクローン
@@ -57,74 +33,107 @@ git clone <repository-url>
 cd <project-directory>
 ```
 
-## 4. 依存関係のインストール
-
-```bash
-# npm依存関係のインストール
-npm install
-```
-
-## 5. 環境変数の設定
+## 3. 環境変数の設定
 
 ```bash
 # .envファイルの作成
-cp .env.example .env
-
-# 必要に応じて.envファイルを編集
-nano .env
-```
-
-### 必要な環境変数
-
-```env
-# セッション秘密鍵（ランダムな文字列を設定）
+cat > .env << EOF
 SESSION_SECRET=your-super-secret-session-key-here
-
-# データベース設定（SQLite使用）
-DATABASE_URL=file:./database.sqlite
-
-# 開発環境設定
-NODE_ENV=development
+NODE_ENV=production
+EOF
 ```
 
-## 6. データベースの初期化
+### 環境設定の説明
+
+- **SESSION_SECRET**: セッション管理用の秘密鍵（必須）
+- **NODE_ENV**: 実行モード（`development` または `production`）
+
+**重要**: 
+- `your-super-secret-session-key-here` の部分を安全なランダム文字列に変更してください
+- `NODE_ENV=development` にすると開発モード（ホットリロード有効）
+- `NODE_ENV=production` にすると本番モード（最適化された静的ファイル配信）
+
+### 推奨セッション鍵生成方法
 
 ```bash
-# データベースマイグレーション
-npm run db:push
+# Linux/macOS
+openssl rand -base64 32
 
-# 初期データの投入（オプション）
-npm run db:seed
+# Windows PowerShell
+[System.Web.Security.Membership]::GeneratePassword(32, 0)
 ```
 
-## 7. 開発サーバーの起動
+## 4. アプリケーションの起動
+
+### 簡単起動（推奨）
 
 ```bash
-# 開発サーバー起動
-npm run dev
+# 1つのコマンドで完全起動
+docker-compose up -d --build
 ```
+
+このコマンドで以下が自動実行されます：
+- PostgreSQLコンテナの起動
+- アプリケーションコンテナのビルド・起動
+- データベーススキーマの自動作成
+- デフォルトデータの自動挿入
+
+### 起動確認
+
+```bash
+# コンテナ状態確認
+docker-compose ps
+
+# アプリケーションログ確認
+docker-compose logs -f app
+```
+
+### アクセス
 
 アプリケーションは `http://localhost:5000` でアクセス可能になります。
 
-## 8. 初期ユーザーの作成
+## 新しい環境でのセットアップ手順（まとめ）
 
-### デフォルトユーザー
+新しい端末で以下の手順で簡単に起動できます：
 
-システムには以下のデフォルトユーザーが用意されています：
+```bash
+# 1. プロジェクトをクローン
+git clone <repository-url>
+cd <project-directory>
+
+# 2. 環境変数を設定
+cat > .env << EOF
+SESSION_SECRET=your-super-secret-session-key-here
+NODE_ENV=production
+EOF
+
+# 3. 起動（これだけで完了！）
+docker-compose up -d --build
+```
+
+起動後、ブラウザで `http://localhost:5000` にアクセスし、以下のユーザーでログインできます：
+
+- **tanaka** / password123（作成者）
+- **suzuki** / password123（承認者）  
+- **tamura** / password123（管理者）
+
+## 5. 初期ユーザー
+
+システムには以下のデフォルトユーザーが自動的に作成されます：
 
 | ユーザー名 | パスワード | 役割 | 承認レベル |
 |-----------|-----------|------|-----------|
 | tanaka | password123 | creator | 1 |
-| sato | password123 | approver | 2 |
-| suzuki | password123 | approver | 3 |
-| takahashi | password123 | admin | 4 |
+| sato | password123 | creator | 1 |
+| suzuki | password123 | approver | 2 |
+| takahashi | password123 | approver | 3 |
 | tamura | password123 | admin | 5 |
 
 ### 新規ユーザーの追加
 
 管理者権限でログイン後、「ユーザー管理」画面から新規ユーザーを追加できます。
 
-## 9. システムの使用方法
+## 6. システムの使用方法
 
 ### 基本的なワークフロー
 
@@ -140,74 +149,99 @@ npm run dev
 - **承認者（Approver）**: 報告書の承認・差し戻し
 - **管理者（Admin）**: 全ての機能 + ユーザー管理
 
-## 10. トラブルシューティング
+## 7. トラブルシューティング
 
 ### ポート競合エラー
 
 ```bash
-# ポート5000が使用中の場合
+# ポート5000が使用中の場合（Windows）
+netstat -ano | findstr :5000
+taskkill /PID <PID> /F
+
+# ポート5000が使用中の場合（Linux/macOS）
 sudo lsof -i :5000
 sudo kill -9 <PID>
+```
+
+### コンテナ起動エラー
+
+```bash
+# コンテナ状態確認
+docker-compose ps
+
+# アプリケーションログ確認
+docker-compose logs app
+
+# データベースログ確認
+docker-compose logs postgres
+
+# 完全リセット（データも削除）
+docker-compose down -v
+docker-compose up -d --build
 ```
 
 ### データベース接続エラー
 
 ```bash
-# データベースファイルの権限確認
-ls -la database.sqlite
+# PostgreSQLコンテナの状態確認
+docker-compose exec postgres pg_isready -U postgres
 
-# 権限修正
-chmod 644 database.sqlite
+# データベース接続テスト
+docker-compose exec postgres psql -U postgres -d bond_inquiry_db -c "SELECT 1;"
 ```
 
-### Node.jsモジュールエラー
+### ビルドエラー
 
 ```bash
-# node_modulesの再インストール
-rm -rf node_modules
-rm package-lock.json
-npm install
+# イメージの再ビルド（キャッシュなし）
+docker-compose build --no-cache
+docker-compose up -d
 ```
 
-## 11. 本番環境での運用
+## 8. 本番環境での運用
 
 ### 環境変数の設定
 
-```env
+```bash
+# .envファイルを本番用に設定
+cat > .env << EOF
+SESSION_SECRET=your-production-secret-key-here
 NODE_ENV=production
-SESSION_SECRET=production-secret-key
-DATABASE_URL=file:./production.sqlite
+EOF
 ```
 
-### プロダクションビルド
+**重要**: 本番環境では必ず強固なセッション鍵を設定してください。
+
+### Docker Composeでの本番運用
 
 ```bash
-# プロダクション用ビルド
-npm run build
+# 本番環境での起動
+docker-compose up -d --build
 
-# プロダクションサーバー起動
-npm start
+# 自動再起動設定（docker-compose.ymlに既に設定済み）
+# restart: unless-stopped
 ```
 
 ### システムサービス化（systemd）
 
 ```bash
 # サービスファイルの作成
-sudo nano /etc/systemd/system/bond-report-system.service
+sudo nano /etc/systemd/system/densai-system.service
 ```
 
 ```ini
 [Unit]
-Description=Electronic Bond Report System
-After=network.target
+Description=Densai Electronic Bond Report System
+After=network.target docker.service
+Requires=docker.service
 
 [Service]
-Type=simple
-User=your-username
+Type=oneshot
+RemainAfterExit=yes
 WorkingDirectory=/path/to/your/project
-Environment=NODE_ENV=production
-ExecStart=/usr/bin/npm start
-Restart=always
+ExecStart=/usr/bin/docker-compose up -d
+ExecStop=/usr/bin/docker-compose down
+TimeoutStartSec=0
 
 [Install]
 WantedBy=multi-user.target
@@ -215,25 +249,45 @@ WantedBy=multi-user.target
 
 ```bash
 # サービスの有効化と起動
-sudo systemctl enable bond-report-system
-sudo systemctl start bond-report-system
-sudo systemctl status bond-report-system
+sudo systemctl enable densai-system
+sudo systemctl start densai-system
+sudo systemctl status densai-system
 ```
 
-## 12. バックアップとメンテナンス
+## 9. バックアップとメンテナンス
 
 ### データベースバックアップ
 
 ```bash
-# SQLiteデータベースのバックアップ
-cp database.sqlite backup/database_$(date +%Y%m%d_%H%M%S).sqlite
+# PostgreSQLデータベースのバックアップ
+docker-compose exec postgres pg_dump -U postgres bond_inquiry_db > backup/database_$(date +%Y%m%d_%H%M%S).sql
+
+# バックアップからの復元
+docker-compose exec -T postgres psql -U postgres bond_inquiry_db < backup/database_YYYYMMDD_HHMMSS.sql
 ```
 
 ### ログ監視
 
 ```bash
 # アプリケーションログの確認
-sudo journalctl -u bond-report-system -f
+docker-compose logs -f app
+
+# データベースログの確認
+docker-compose logs -f postgres
+```
+
+### コンテナ管理
+
+```bash
+# コンテナの停止
+docker-compose down
+
+# データも含めて完全削除
+docker-compose down -v
+
+# イメージの更新
+docker-compose pull
+docker-compose up -d --build
 ```
 
 ## サポート

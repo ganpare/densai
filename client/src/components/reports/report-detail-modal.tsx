@@ -7,10 +7,8 @@ import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { ReportWithDetails } from "@shared/schema";
-import PrintModal from "./print-modal";
-import PrintOptionsModal from "./print-options-modal";
+// import PrintModal from "./print-modal";
 import { X, FileText, CheckCircle, XCircle, Printer, FileDown } from "lucide-react";
-import jsPDF from 'jspdf';
 
 interface ReportDetailModalProps {
   report: ReportWithDetails;
@@ -29,25 +27,45 @@ export default function ReportDetailModal({
 }: ReportDetailModalProps) {
   const { toast } = useToast();
   const [showPrintModal, setShowPrintModal] = useState(false);
-  const [showPrintOptionsModal, setShowPrintOptionsModal] = useState(false);
 
-  // PDF generation mutation
+  // PDF generation and download mutation
   const generatePdfMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest("GET", `/api/reports/${report.id}/pdf`);
-      const result = await response.json();
+      // Step 1: Generate PDF on server
+      const generateResponse = await apiRequest("POST", `/api/reports/${report.id}/pdf/generate`);
+      const result = await generateResponse.json();
+      
+      if (!result.success) {
+        throw new Error(result.message || "PDF generation failed");
+      }
+      
+      // Step 2: Download the generated PDF
+      const downloadResponse = await fetch(`/api/reports/${report.id}/pdf/download`, {
+        credentials: 'include'
+      });
+      
+      if (!downloadResponse.ok) {
+        throw new Error("PDF download failed");
+      }
+      
+      // Create a blob from the response and trigger download
+      const blob = await downloadResponse.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = result.filename || `report_${report.id}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
       return result;
     },
-    onSuccess: (data) => {
-      if (data.success && data.data) {
-        generateAndDownloadPDF(data.data);
-        toast({
-          title: "PDF出力完了",
-          description: "PDFファイルのダウンロードが開始されました。",
-        });
-      } else {
-        throw new Error("PDF data not available");
-      }
+    onSuccess: () => {
+      toast({
+        title: "PDF出力完了",
+        description: "PDFファイルのダウンロードが開始されました。",
+      });
     },
     onError: (error: Error) => {
       if (isUnauthorizedError(error)) {
@@ -62,7 +80,7 @@ export default function ReportDetailModal({
         return;
       }
       toast({
-        title: "PDF生成エラー",
+        title: "PDF出力エラー",
         description: "PDFの生成に失敗しました。",
         variant: "destructive",
       });
@@ -89,8 +107,10 @@ export default function ReportDetailModal({
     );
   };
 
-  const formatDateTime = (dateString: string) => {
-    return new Date(dateString).toLocaleString('ja-JP', {
+  const formatDateTime = (timestamp: number | null | undefined) => {
+    if (!timestamp) return '-';
+    // Unix timestamp (秒) → ミリ秒に変換
+    return new Date(timestamp * 1000).toLocaleString('ja-JP', {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
@@ -108,74 +128,7 @@ export default function ReportDetailModal({
       });
       return;
     }
-    setShowPrintOptionsModal(true);
-  };
-
-  // PDF生成関数
-  const generateAndDownloadPDF = (reportData: any) => {
-    const pdf = new jsPDF({
-      orientation: 'portrait',
-      unit: 'mm',
-      format: 'a4'
-    });
-
-    // PDFタイトル
-    pdf.setFontSize(16);
-    pdf.text('電子債権問い合わせ対応報告書', 20, 20);
-    
-    // 基本情報
-    pdf.setFontSize(12);
-    let yPos = 40;
-    
-    pdf.text(`報告書番号: ${reportData.reportNumber}`, 20, yPos);
-    yPos += 10;
-    pdf.text(`ユーザー番号: ${reportData.userNumber}`, 20, yPos);
-    yPos += 10;
-    pdf.text(`金庫コード: ${reportData.bankCode}`, 20, yPos);
-    yPos += 10;
-    pdf.text(`支店コード: ${reportData.branchCode}`, 20, yPos);
-    yPos += 10;
-    pdf.text(`企業名: ${reportData.companyName}`, 20, yPos);
-    yPos += 10;
-    pdf.text(`担当者: ${reportData.contactPersonName}`, 20, yPos);
-    yPos += 15;
-    
-    // 問い合わせ内容
-    pdf.text('問い合わせ内容:', 20, yPos);
-    yPos += 10;
-    const inquiryLines = pdf.splitTextToSize(reportData.inquiryContent, 170);
-    pdf.text(inquiryLines, 20, yPos);
-    yPos += inquiryLines.length * 5 + 10;
-    
-    // 回答内容
-    pdf.text('回答内容:', 20, yPos);
-    yPos += 10;
-    const responseLines = pdf.splitTextToSize(reportData.responseContent, 170);
-    pdf.text(responseLines, 20, yPos);
-    yPos += responseLines.length * 5 + 10;
-    
-    // エスカレーション情報
-    if (reportData.escalationRequired) {
-      pdf.text('エスカレーション理由:', 20, yPos);
-      yPos += 10;
-      const escalationLines = pdf.splitTextToSize(reportData.escalationReason || '', 170);
-      pdf.text(escalationLines, 20, yPos);
-      yPos += escalationLines.length * 5 + 10;
-    }
-    
-    // 承認情報
-    pdf.text(`作成者: ${reportData.handlerName}`, 20, yPos);
-    yPos += 10;
-    pdf.text(`承認者: ${reportData.approverName}`, 20, yPos);
-    yPos += 10;
-    
-    if (reportData.approvedAt) {
-      const approvedDate = new Date(reportData.approvedAt * 1000).toLocaleDateString('ja-JP');
-      pdf.text(`承認日時: ${approvedDate}`, 20, yPos);
-    }
-    
-    // PDFをダウンロード
-    pdf.save(`${reportData.bankCode}_${reportData.branchCode}_${reportData.reportNumber}.pdf`);
+    setShowPrintModal(true);
   };
 
   const handlePdfClick = () => {
@@ -219,11 +172,11 @@ export default function ReportDetailModal({
                   {report.reportNumber}
                 </h3>
                 <p className="text-sm text-muted-foreground" data-testid="text-created-date">
-                  作成日時: {formatDateTime(report.createdAt?.toString() || '')}
+                  作成日時: {formatDateTime(report.createdAt)}
                 </p>
                 {report.approvedAt && (
                   <p className="text-sm text-muted-foreground" data-testid="text-approved-date">
-                    承認日時: {formatDateTime(report.approvedAt?.toString() || '')}
+                    承認日時: {formatDateTime(report.approvedAt)}
                   </p>
                 )}
               </div>
@@ -267,9 +220,7 @@ export default function ReportDetailModal({
                 <div>
                   <label className="block text-sm font-medium text-muted-foreground">承認者</label>
                   <p className="text-foreground" data-testid="text-approver">
-                    {report.approver?.firstName && report.approver?.lastName 
-                      ? `${report.approver.firstName} ${report.approver.lastName}`
-                      : "未設定"}
+                    {report.approver.firstName} {report.approver.lastName}
                   </p>
                 </div>
                 <div>
@@ -348,7 +299,7 @@ export default function ReportDetailModal({
                     data-testid="button-print"
                   >
                     <Printer className="mr-2 h-4 w-4" />
-                    印刷・保存
+                    印刷
                   </Button>
                 </>
               )}
@@ -384,21 +335,13 @@ export default function ReportDetailModal({
         </DialogContent>
       </Dialog>
 
-      {/* Print Modal */}
-      {showPrintModal && (
+      {/* Print Modal - Temporarily disabled */}
+      {/* {showPrintModal && (
         <PrintModal
           reportId={report.id}
           onClose={() => setShowPrintModal(false)}
         />
-      )}
-
-      {/* Print Options Modal */}
-      {showPrintOptionsModal && (
-        <PrintOptionsModal
-          report={report}
-          onClose={() => setShowPrintOptionsModal(false)}
-        />
-      )}
+      )} */}
     </>
   );
 }

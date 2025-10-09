@@ -34,18 +34,20 @@ export interface IStorage {
   // Report operations
   createReport(report: InsertReport): Promise<Report>;
   updateReport(id: string, report: Partial<InsertReport>): Promise<Report>;
-  updateReportStatus(id: string, status: UpdateReportStatus): Promise<Report>;
+  updateReportStatus(id: string, status: UpdateReportStatus, approverId?: string): Promise<Report>;
   getReport(id: string): Promise<ReportWithDetails | undefined>;
   getReportsByUser(userId: string, status?: string): Promise<ReportWithDetails[]>;
-  getReportsForApproval(approverId?: string): Promise<ReportWithDetails[]>;
+  getReportsForApproval(approverId: string): Promise<ReportWithDetails[]>;
+  getApprovedReportsByApprover(approverId: string): Promise<ReportWithDetails[]>;
+  getTodayApprovedReports(): Promise<ReportWithDetails[]>;
   getAllReports(limit?: number, offset?: number): Promise<ReportWithDetails[]>;
-  searchReports(query: string, userId?: string): Promise<ReportWithDetails[]>;
+  searchReports(query: string): Promise<ReportWithDetails[]>;
   
   // Statistics
   getReportStatistics(): Promise<{
     todayInquiries: number;
     pendingApprovals: number;
-    monthlyCompleted: number;
+    todayCompleted: number;
     escalations: number;
   }>;
   
@@ -194,22 +196,28 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
-  async updateReportStatus(id: string, statusUpdate: UpdateReportStatus): Promise<Report> {
+  async updateReportStatus(id: string, statusUpdate: UpdateReportStatus, approverId?: string): Promise<Report> {
     const updateData: any = {
       status: statusUpdate.status,
       updatedAt: Math.floor(Date.now() / 1000),
     };
 
+    // 承認または差し戻し時に承認者IDを記録
+    if ((statusUpdate.status === 'approved' || statusUpdate.status === 'rejected') && approverId) {
+      updateData.approverId = approverId;
+    }
+
+    // 承認申請時はapproverIdをクリア（誰にも割り当てない）
+    if (statusUpdate.status === 'pending_approval') {
+      updateData.approverId = null;
+    }
+
     if (statusUpdate.status === 'approved') {
-      updateData.approvedAt = statusUpdate.approvedAt || Math.floor(Date.now() / 1000);
+      updateData.approvedAt = Math.floor(Date.now() / 1000);
     }
 
     if (statusUpdate.rejectionReason) {
       updateData.rejectionReason = statusUpdate.rejectionReason;
-    }
-
-    if (statusUpdate.approverId) {
-      updateData.approverId = statusUpdate.approverId;
     }
 
     const [updated] = await db
@@ -231,7 +239,8 @@ export class DatabaseStorage implements IStorage {
           firstName: sql`approver.first_name`,
           lastName: sql`approver.last_name`,
 
-          roles: sql`approver.roles`,
+          role: sql`approver.role`,
+          approvalLevel: sql`approver.approval_level`,
           createdAt: sql`approver.created_at`,
           updatedAt: sql`approver.updated_at`,
         },
@@ -253,15 +262,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getReportsByUser(userId: string, status?: string): Promise<ReportWithDetails[]> {
-    console.log('getReportsByUser called with userId:', userId, 'status:', status);
-    
-    let whereCondition = eq(reports.handlerId, userId);
-    
-    // Add status filter if provided
-    if (status && status !== 'all') {
-      whereCondition = and(whereCondition, eq(reports.status, status));
-    }
-    
+    const whereCondition = status 
+      ? and(eq(reports.handlerId, userId), eq(reports.status, status))!
+      : eq(reports.handlerId, userId);
+
     const result = await db
       .select({
         report: reports,
@@ -270,7 +274,8 @@ export class DatabaseStorage implements IStorage {
           id: sql`approver.id`,
           firstName: sql`approver.first_name`,
           lastName: sql`approver.last_name`,
-          roles: sql`approver.roles`,
+          role: sql`approver.role`,
+          approvalLevel: sql`approver.approval_level`,
           createdAt: sql`approver.created_at`,
           updatedAt: sql`approver.updated_at`,
         },
@@ -281,7 +286,34 @@ export class DatabaseStorage implements IStorage {
       .where(whereCondition)
       .orderBy(desc(reports.createdAt));
 
-    console.log('getReportsByUser result count:', result.length);
+    return result.map(row => ({
+      ...row.report,
+      handler: row.handler,
+      approver: row.approver as User,
+    }));
+  }
+
+  async getReportsForApproval(approverId: string): Promise<ReportWithDetails[]> {
+    // 承認権限を持つ人なら誰でも承認待ち報告書を見られる
+    const result = await db
+      .select({
+        report: reports,
+        handler: users,
+        approver: {
+          id: sql`approver.id`,
+          firstName: sql`approver.first_name`,
+          lastName: sql`approver.last_name`,
+          role: sql`approver.role`,
+          approvalLevel: sql`approver.approval_level`,
+          createdAt: sql`approver.created_at`,
+          updatedAt: sql`approver.updated_at`,
+        },
+      })
+      .from(reports)
+      .innerJoin(users, eq(reports.handlerId, users.id))
+      .leftJoin(sql`users as approver`, sql`${reports.approverId} = approver.id`)
+      .where(eq(reports.status, "pending_approval"))
+      .orderBy(desc(reports.createdAt));
 
     return result.map(row => ({
       ...row.report,
@@ -290,27 +322,75 @@ export class DatabaseStorage implements IStorage {
     }));
   }
 
-  async getReportsForApproval(approverId?: string): Promise<ReportWithDetails[]> {
-    console.log('getReportsForApproval called with approverId:', approverId);
-    
-    // Simplified query - just get pending reports with handler info
+  async getApprovedReportsByApprover(approverId: string): Promise<ReportWithDetails[]> {
+    // 承認者が承認した報告書を取得
     const result = await db
       .select({
         report: reports,
         handler: users,
+        approver: {
+          id: sql`approver.id`,
+          firstName: sql`approver.first_name`,
+          lastName: sql`approver.last_name`,
+          role: sql`approver.role`,
+          approvalLevel: sql`approver.approval_level`,
+          createdAt: sql`approver.created_at`,
+          updatedAt: sql`approver.updated_at`,
+        },
       })
       .from(reports)
       .innerJoin(users, eq(reports.handlerId, users.id))
-      .where(eq(reports.status, "pending_approval"))
-      .orderBy(desc(reports.createdAt));
-
-    console.log('getReportsForApproval result count:', result.length);
-    console.log('getReportsForApproval result:', result);
+      .innerJoin(sql`users as approver`, sql`${reports.approverId} = approver.id`)
+      .where(
+        and(
+          eq(reports.approverId, approverId),
+          eq(reports.status, "approved")
+        )
+      )
+      .orderBy(desc(reports.approvedAt));
 
     return result.map(row => ({
       ...row.report,
       handler: row.handler,
-      approver: null, // For now, just set approver to null since it's pending
+      approver: row.approver as User,
+    }));
+  }
+
+  async getTodayApprovedReports(): Promise<ReportWithDetails[]> {
+    const today = new Date();
+    const startOfDay = Math.floor(new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime() / 1000);
+    const endOfDay = Math.floor(new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).getTime() / 1000);
+
+    const result = await db
+      .select({
+        report: reports,
+        handler: users,
+        approver: {
+          id: sql`approver.id`,
+          firstName: sql`approver.first_name`,
+          lastName: sql`approver.last_name`,
+          role: sql`approver.role`,
+          approvalLevel: sql`approver.approval_level`,
+          createdAt: sql`approver.created_at`,
+          updatedAt: sql`approver.updated_at`,
+        },
+      })
+      .from(reports)
+      .innerJoin(users, eq(reports.handlerId, users.id))
+      .innerJoin(sql`users as approver`, sql`${reports.approverId} = approver.id`)
+      .where(
+        and(
+          eq(reports.status, "approved"),
+          sql`${reports.approvedAt} >= ${startOfDay}`,
+          sql`${reports.approvedAt} < ${endOfDay}`
+        )
+      )
+      .orderBy(desc(reports.approvedAt));
+
+    return result.map(row => ({
+      ...row.report,
+      handler: row.handler,
+      approver: row.approver as User,
     }));
   }
 
@@ -325,7 +405,8 @@ export class DatabaseStorage implements IStorage {
           firstName: sql`approver.first_name`,
           lastName: sql`approver.last_name`,
 
-          roles: sql`approver.roles`,
+          role: sql`approver.role`,
+          approvalLevel: sql`approver.approval_level`,
           createdAt: sql`approver.created_at`,
           updatedAt: sql`approver.updated_at`,
         },
@@ -344,42 +425,35 @@ export class DatabaseStorage implements IStorage {
     }));
   }
 
-  async searchReports(query: string, userId?: string): Promise<ReportWithDetails[]> {
-    console.log('searchReports called with query:', query, 'userId:', userId);
-    
-    let whereCondition = or(
-      like(reports.reportNumber, `%${query}%`),
-      like(reports.companyName, `%${query}%`),
-      like(reports.contactPersonName, `%${query}%`),
-      like(reports.inquiryContent, `%${query}%`),
-      like(reports.responseContent, `%${query}%`)
-    );
-
-    // If userId is provided, limit search to that user's reports
-    if (userId) {
-      whereCondition = and(whereCondition, eq(reports.handlerId, userId));
-    }
-
+  async searchReports(query: string): Promise<ReportWithDetails[]> {
     const result = await db
       .select({
         report: reports,
         handler: users,
         approver: {
           id: sql`approver.id`,
+
           firstName: sql`approver.first_name`,
           lastName: sql`approver.last_name`,
-          roles: sql`approver.roles`,
+
+          role: sql`approver.role`,
+          approvalLevel: sql`approver.approval_level`,
           createdAt: sql`approver.created_at`,
           updatedAt: sql`approver.updated_at`,
         },
       })
       .from(reports)
       .innerJoin(users, eq(reports.handlerId, users.id))
-      .leftJoin(sql`users as approver`, sql`${reports.approverId} = approver.id`)
-      .where(whereCondition)
+      .innerJoin(sql`users as approver`, sql`${reports.approverId} = approver.id`)
+      .where(
+        or(
+          like(reports.reportNumber, `%${query}%`),
+          like(reports.companyName, `%${query}%`),
+          like(reports.contactPersonName, `%${query}%`),
+          like(reports.inquiryContent, `%${query}%`)
+        )
+      )
       .orderBy(desc(reports.createdAt));
-
-    console.log('searchReports result count:', result.length);
 
     return result.map(row => ({
       ...row.report,
@@ -391,19 +465,17 @@ export class DatabaseStorage implements IStorage {
   async getReportStatistics(): Promise<{
     todayInquiries: number;
     pendingApprovals: number;
-    monthlyCompleted: number;
+    todayCompleted: number;
     escalations: number;
   }> {
     const today = new Date();
     const startOfDay = Math.floor(new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime() / 1000);
     const endOfDay = Math.floor(new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).getTime() / 1000);
-    
-    const startOfMonth = Math.floor(new Date(today.getFullYear(), today.getMonth(), 1).getTime() / 1000);
 
     const [
       todayResult,
       pendingResult,
-      monthlyResult,
+      todayCompletedResult,
       escalationResult
     ] = await Promise.all([
       db.select({ count: count() }).from(reports).where(
@@ -416,7 +488,8 @@ export class DatabaseStorage implements IStorage {
       db.select({ count: count() }).from(reports).where(
         and(
           eq(reports.status, "approved"),
-          sql`${reports.createdAt} >= ${startOfMonth}`
+          sql`${reports.approvedAt} >= ${startOfDay}`,
+          sql`${reports.approvedAt} < ${endOfDay}`
         )
       ),
   db.select({ count: count() }).from(reports).where(eq(reports.escalationRequired, true))
@@ -425,36 +498,16 @@ export class DatabaseStorage implements IStorage {
     return {
       todayInquiries: todayResult[0]?.count || 0,
       pendingApprovals: pendingResult[0]?.count || 0,
-      monthlyCompleted: monthlyResult[0]?.count || 0,
+      todayCompleted: todayCompletedResult[0]?.count || 0,
       escalations: escalationResult[0]?.count || 0,
     };
   }
 
-  // Helper function to check if user has a specific role
-  private hasRole(user: User, requiredRole: string): boolean {
-    try {
-      const roles = JSON.parse(user.roles);
-      return roles.includes(requiredRole);
-    } catch (error) {
-      console.error('Error parsing user roles:', error);
-      return false;
-    }
-  }
-
-  async getUsersByRole(requiredRole: string | string[]): Promise<User[]> {
-    const allUsers = await db.select().from(users);
-    
-    if (Array.isArray(requiredRole)) {
-      return allUsers.filter(user => {
-        try {
-          const userRoles = JSON.parse(user.roles);
-          return requiredRole.some(role => userRoles.includes(role));
-        } catch {
-          return false;
-        }
-      });
+  async getUsersByRole(role: string | string[]): Promise<User[]> {
+    if (Array.isArray(role)) {
+      return await db.select().from(users).where(or(...role.map(r => eq(users.role, r))));
     } else {
-      return allUsers.filter(user => this.hasRole(user, requiredRole));
+      return await db.select().from(users).where(eq(users.role, role));
     }
   }
 
@@ -481,95 +534,6 @@ export class DatabaseStorage implements IStorage {
 
   async deleteUser(id: string): Promise<void> {
     await db.delete(users).where(eq(users.id, id));
-  }
-
-  async getTodayApprovedReportsByBank(): Promise<{ [bankCode: string]: ReportWithDetails[] }> {
-    // Calculate today's start and end timestamps
-    const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000 - 1);
-    
-    const startTimestamp = Math.floor(todayStart.getTime() / 1000);
-    const endTimestamp = Math.floor(todayEnd.getTime() / 1000);
-
-    console.log('Getting today approved reports for date range:', {
-      start: todayStart.toISOString(),
-      end: todayEnd.toISOString(),
-      startTimestamp,
-      endTimestamp
-    });
-
-    const result = await db
-      .select({
-        report: reports,
-        handler: users,
-        approver: {
-          id: sql`approver.id`,
-          firstName: sql`approver.first_name`,
-          lastName: sql`approver.last_name`,
-          roles: sql`approver.roles`,
-          createdAt: sql`approver.created_at`,
-          updatedAt: sql`approver.updated_at`,
-        },
-      })
-      .from(reports)
-      .innerJoin(users, eq(reports.handlerId, users.id))
-      .leftJoin(
-        alias(users, 'approver'),
-        eq(reports.approverId, sql`approver.id`)
-      )
-      .where(
-        and(
-          eq(reports.status, 'approved'),
-          gte(reports.approvedAt, startTimestamp),
-          lte(reports.approvedAt, endTimestamp)
-        )
-      )
-      .orderBy(reports.bankCode, reports.branchCode, reports.approvedAt);
-
-    console.log('Found approved reports today:', result.length);
-
-    // Group reports by bank code
-    const groupedReports: { [bankCode: string]: ReportWithDetails[] } = {};
-    
-    for (const row of result) {
-      const reportWithDetails: ReportWithDetails = {
-        ...row.report,
-        handler: row.handler,
-        approver: row.approver as User,
-      };
-
-      if (!groupedReports[row.report.bankCode]) {
-        groupedReports[row.report.bankCode] = [];
-      }
-      
-      groupedReports[row.report.bankCode].push(reportWithDetails);
-    }
-
-    console.log('Grouped by bank code:', Object.keys(groupedReports));
-    return groupedReports;
-  }
-
-  async getTodayReportCount(): Promise<number> {
-    const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000 - 1);
-    
-    const startTimestamp = Math.floor(todayStart.getTime() / 1000);
-    const endTimestamp = Math.floor(todayEnd.getTime() / 1000);
-
-    const result = await db
-      .select({ count: sql<number>`count(*)` })
-      .from(reports)
-      .where(
-        and(
-          eq(reports.status, 'approved'),
-          gte(reports.approvedAt, startTimestamp),
-          lte(reports.approvedAt, endTimestamp)
-        )
-      );
-
-    return result[0]?.count || 0;
   }
 }
 

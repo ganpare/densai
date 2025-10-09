@@ -1,14 +1,21 @@
 // Simple username/password authentication system
 import session from "express-session";
+import pgSession from "connect-pg-simple";
 import type { Express, RequestHandler } from "express";
 import { storage } from "./storage";
 
 export function getSession() {
   const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
+  const PgSession = pgSession(session);
   
   return session({
+    store: new PgSession({
+      conString: process.env.DATABASE_URL,
+      tableName: 'sessions',
+      createTableIfMissing: true,
+    }),
     secret: "development-secret-key-for-offline-use",
-    resave: true, // セッションを強制保存
+    resave: false, // PostgreSQLストレージでは不要
     saveUninitialized: false, // 空のセッションは保存しない
     rolling: true, // アクセス毎にexpire時間をリセット
     cookie: {
