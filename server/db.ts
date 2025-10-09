@@ -24,6 +24,79 @@ export async function initializeDatabase() {
       throw error;
     }
     
+    // Create tables if they don't exist
+    try {
+      await db.execute(sql`
+        CREATE TABLE IF NOT EXISTS users (
+          id text PRIMARY KEY,
+          username text NOT NULL UNIQUE,
+          password text NOT NULL,
+          first_name text,
+          last_name text,
+          role text NOT NULL DEFAULT 'creator',
+          approval_level integer DEFAULT 1,
+          created_at integer,
+          updated_at integer
+        );
+      `);
+      
+      await db.execute(sql`
+        CREATE TABLE IF NOT EXISTS financial_institutions (
+          id text PRIMARY KEY,
+          bank_code text NOT NULL UNIQUE,
+          bank_name text NOT NULL,
+          created_at integer
+        );
+      `);
+      
+      await db.execute(sql`
+        CREATE TABLE IF NOT EXISTS branches (
+          id text PRIMARY KEY,
+          institution_id text NOT NULL REFERENCES financial_institutions(id),
+          branch_code text NOT NULL,
+          branch_name text NOT NULL,
+          created_at integer
+        );
+      `);
+      
+      await db.execute(sql`
+        CREATE TABLE IF NOT EXISTS reports (
+          id text PRIMARY KEY,
+          report_number text NOT NULL UNIQUE,
+          user_number text NOT NULL,
+          bank_code text NOT NULL,
+          branch_code text NOT NULL,
+          company_name text NOT NULL,
+          contact_person_name text NOT NULL,
+          handler_id text NOT NULL REFERENCES users(id),
+          approver_id text REFERENCES users(id),
+          inquiry_content text NOT NULL,
+          response_content text NOT NULL,
+          escalation_required boolean NOT NULL DEFAULT false,
+          escalation_reason text,
+          status text NOT NULL DEFAULT 'draft',
+          rejection_reason text,
+          pdf_file_path text,
+          approved_at integer,
+          created_at integer,
+          updated_at integer
+        );
+      `);
+      
+      await db.execute(sql`
+        CREATE TABLE IF NOT EXISTS sessions (
+          sid text PRIMARY KEY,
+          sess text NOT NULL,
+          expire timestamp NOT NULL
+        );
+      `);
+      
+      console.log('✅ Database schema created/verified');
+    } catch (error) {
+      console.error('❌ Schema creation error:', error);
+      throw error;
+    }
+    
     // Check if users exist and insert default data if needed
     const users = await db.select().from(schema.users);
     if (users.length === 0) {

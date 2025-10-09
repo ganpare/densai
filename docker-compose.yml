@@ -23,9 +23,9 @@ services:
     build: .
     container_name: bond_inquiry_app
     environment:
-      NODE_ENV: production
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/bond_inquiry_db
       SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET must be set in .env file}
+      NODE_ENV: ${NODE_ENV:-production}
     ports:
       - "5000:5000"
     volumes:
