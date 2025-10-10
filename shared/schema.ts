@@ -32,7 +32,7 @@ export const users = pgTable("users", {
   password: text("password").notNull(),
   firstName: text("first_name"),
   lastName: text("last_name"),
-  roles: text("roles").notNull().default("handler"), // JSON array: ["handler"], ["approver"], ["handler","approver"], ["admin"]
+  role: text("role").notNull().default("handler"), // JSON array: ["handler"], ["approver"], ["handler","approver"], ["admin"]
   createdAt: integer("created_at"),
   updatedAt: integer("updated_at"),
 });
@@ -114,7 +114,7 @@ export const insertUserSchema = createInsertSchema(users).pick({
   password: true,
   firstName: true,
   lastName: true,
-  roles: true,
+  role: true,
 });
 
 export const insertFinancialInstitutionSchema = createInsertSchema(financialInstitutions).omit({

@@ -22,7 +22,7 @@
 
 ```bash
 docker --version
-docker-compose --version
+docker compose version
 ```
 
 ## 2. プロジェクトのクローン
@@ -69,7 +69,7 @@ openssl rand -base64 32
 
 ```bash
 # 1つのコマンドで完全起動
-docker-compose up -d --build
+docker compose up -d --build
 ```
 
 このコマンドで以下が自動実行されます：
@@ -82,10 +82,10 @@ docker-compose up -d --build
 
 ```bash
 # コンテナ状態確認
-docker-compose ps
+docker compose ps
 
 # アプリケーションログ確認
-docker-compose logs -f app
+docker compose logs -f app
 ```
 
 ### アクセス
@@ -108,7 +108,7 @@ NODE_ENV=production
 EOF
 
 # 3. 起動（これだけで完了！）
-docker-compose up -d --build
+docker compose up -d --build
 ```
 
 起動後、ブラウザで `http://localhost:5000` にアクセスし、以下のユーザーでログインできます：
@@ -167,35 +167,35 @@ sudo kill -9 <PID>
 
 ```bash
 # コンテナ状態確認
-docker-compose ps
+docker compose ps
 
 # アプリケーションログ確認
-docker-compose logs app
+docker compose logs app
 
 # データベースログ確認
-docker-compose logs postgres
+docker compose logs postgres
 
 # 完全リセット（データも削除）
-docker-compose down -v
-docker-compose up -d --build
+docker compose down -v
+docker compose up -d --build
 ```
 
 ### データベース接続エラー
 
 ```bash
 # PostgreSQLコンテナの状態確認
-docker-compose exec postgres pg_isready -U postgres
+docker compose exec postgres pg_isready -U postgres
 
 # データベース接続テスト
-docker-compose exec postgres psql -U postgres -d bond_inquiry_db -c "SELECT 1;"
+docker compose exec postgres psql -U postgres -d bond_inquiry_db -c "SELECT 1;"
 ```
 
 ### ビルドエラー
 
 ```bash
 # イメージの再ビルド（キャッシュなし）
-docker-compose build --no-cache
-docker-compose up -d
+docker compose build --no-cache
+docker compose up -d
 ```
 
 ## 8. 本番環境での運用
@@ -216,7 +216,7 @@ EOF
 
 ```bash
 # 本番環境での起動
-docker-compose up -d --build
+docker compose up -d --build
 
 # 自動再起動設定（docker-compose.ymlに既に設定済み）
 # restart: unless-stopped
@@ -239,8 +239,8 @@ Requires=docker.service
 Type=oneshot
 RemainAfterExit=yes
 WorkingDirectory=/path/to/your/project
-ExecStart=/usr/bin/docker-compose up -d
-ExecStop=/usr/bin/docker-compose down
+ExecStart=/usr/bin/docker compose up -d
+ExecStop=/usr/bin/docker compose down
 TimeoutStartSec=0
 
 [Install]
@@ -260,34 +260,34 @@ sudo systemctl status densai-system
 
 ```bash
 # PostgreSQLデータベースのバックアップ
-docker-compose exec postgres pg_dump -U postgres bond_inquiry_db > backup/database_$(date +%Y%m%d_%H%M%S).sql
+docker compose exec postgres pg_dump -U postgres bond_inquiry_db > backup/database_$(date +%Y%m%d_%H%M%S).sql
 
 # バックアップからの復元
-docker-compose exec -T postgres psql -U postgres bond_inquiry_db < backup/database_YYYYMMDD_HHMMSS.sql
+docker compose exec -T postgres psql -U postgres bond_inquiry_db < backup/database_YYYYMMDD_HHMMSS.sql
 ```
 
 ### ログ監視
 
 ```bash
 # アプリケーションログの確認
-docker-compose logs -f app
+docker compose logs -f app
 
 # データベースログの確認
-docker-compose logs -f postgres
+docker compose logs -f postgres
 ```
 
 ### コンテナ管理
 
 ```bash
 # コンテナの停止
-docker-compose down
+docker compose down
 
 # データも含めて完全削除
-docker-compose down -v
+docker compose down -v
 
 # イメージの更新
-docker-compose pull
-docker-compose up -d --build
+docker compose pull
+docker compose up -d --build
 ```
 
 ## サポート
