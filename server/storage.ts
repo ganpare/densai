@@ -361,6 +361,10 @@ export class DatabaseStorage implements IStorage {
     const startOfDay = Math.floor(new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime() / 1000);
     const endOfDay = Math.floor(new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).getTime() / 1000);
 
+    console.log(`[getTodayApprovedReports] Today: ${today.toISOString()}`);
+    console.log(`[getTodayApprovedReports] StartOfDay: ${startOfDay} (${new Date(startOfDay * 1000).toISOString()})`);
+    console.log(`[getTodayApprovedReports] EndOfDay: ${endOfDay} (${new Date(endOfDay * 1000).toISOString()})`);
+
     const result = await db
       .select({
         report: reports,

@@ -2,6 +2,18 @@ FROM node:20-alpine
 
 WORKDIR /app
 
+# puppeteer用の依存関係をインストール
+RUN apk add --no-cache \
+    chromium \
+    nss \
+    freetype \
+    harfbuzz \
+    ca-certificates \
+    ttf-freefont
+
+# puppeteerがインストール済みのChromiumを使用するように設定
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+
 # 依存関係のインストール
 COPY package*.json ./
 RUN npm ci

@@ -1,19 +1,27 @@
-import type { Express } from "express";
+import express from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { pdfService } from "./pdfService";
-import { 
-  insertReportSchema, 
+import {
+  insertReportSchema,
   updateReportStatusSchema,
   insertFinancialInstitutionSchema,
-  insertBranchSchema 
+  insertBranchSchema
 } from "@shared/schema";
 import { z } from "zod";
 import { randomUUID } from "crypto";
 import path from "path";
+import fs from "fs";
+import { htmlToPdfFile } from "./pdfUtils";
+import { fileURLToPath } from "url";
+import { dirname } from "path";
 
-export async function registerRoutes(app: Express): Promise<Server> {
+// ESモジュールで __dirname の代替
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+export async function registerRoutes(app: express.Express): Promise<Server> {
   // Auth middleware
   await setupAuth(app);
 
@@ -193,6 +201,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get today's approved reports (must be BEFORE /api/reports/:id to avoid param capture)
+  app.get('/api/reports/today-approved', isAuthenticated, async (req: any, res) => {
+    try {
+      const approved = await storage.getTodayApprovedReports();
+
+      // Group by bankCode for UI display
+      const reportsByBank: Record<string, any[]> = {};
+      for (const r of approved) {
+        const bank = r.bankCode;
+        if (!reportsByBank[bank]) reportsByBank[bank] = [];
+        reportsByBank[bank].push({
+          id: r.id,
+          reportNumber: r.reportNumber,
+          companyName: r.companyName,
+          bankCode: r.bankCode,
+          branchCode: r.branchCode,
+          approvedAt: r.approvedAt,
+        });
+      }
+
+      return res.json({
+        success: true,
+        reportCount: approved.length,
+        reportsByBank,
+        message: approved.length > 0 ? "OK" : "No approved reports for today",
+      });
+    } catch (error) {
+      console.error("Error fetching today's approved reports:", error);
+      res.status(500).json({ success: false, reportCount: 0, reportsByBank: {}, message: "Failed to fetch today's approved reports" });
+    }
+  });
+
+  // Generate bulk PDF for today's approved reports
+  app.post('/api/reports/bulk-pdf/generate', isAuthenticated, async (req: any, res) => {
+    try {
+      const approved = await storage.getTodayApprovedReports();
+      if (approved.length === 0) {
+        return res.status(200).json({ success: true, message: "No approved reports for today", filename: null });
+      }
+
+      // 1つのHTMLに全件分を連結
+      let htmlBlocks = '';
+      for (const r of approved) {
+        htmlBlocks += `<div style='page-break-after: always;'>`;
+        htmlBlocks += `
+          <div><b>報告書番号:</b> ${r.reportNumber}</div>
+          <div><b>利用者番号:</b> ${r.userNumber}</div>
+          <div><b>名称:</b> ${r.companyName}</div>
+          <div><b>問合せ内容:</b> ${r.inquiryContent}</div>
+          <div><b>対応内容:</b> ${r.responseContent}</div>
+        `;
+        htmlBlocks += `</div>`;
+      }
+
+      // テンプレートを読み込み、{{content}}を置換
+      const templatePath = path.join(__dirname, 'templates', 'report-pdf.html');
+      let template = fs.readFileSync(templatePath, 'utf8');
+      template = template.replace(/<div class="container">([\s\S]*?)<\/div>/, `<div class="container">{{content}}</div>`);
+      const html = template.replace('{{content}}', htmlBlocks);
+
+      // PDF生成
+      const today = new Date();
+      const y = today.getFullYear();
+      const m = String(today.getMonth() + 1).padStart(2, '0');
+      const d = String(today.getDate()).padStart(2, '0');
+      const filename = `bulk_${y}${m}${d}.pdf`;
+      const outPath = path.join(__dirname, '..', 'uploads', 'pdfs', filename);
+
+      console.log(`[PDF Generation] Generating PDF for ${approved.length} reports...`);
+      await htmlToPdfFile(html, outPath);
+      console.log(`[PDF Generation] PDF saved to ${outPath}`);
+
+      return res.json({ success: true, message: 'PDF generated', filename });
+    } catch (error) {
+      console.error("Error generating bulk PDF:", error);
+      res.status(500).json({ success: false, message: "Failed to generate bulk PDF", filename: null });
+    }
+  });
+
   // Get reports pending approval (must be before /api/reports/:id)
   app.get('/api/reports/pending', isAuthenticated, async (req: any, res) => {
     try {
@@ -335,16 +422,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get today's approved reports
-  app.get('/api/reports/today-approved', isAuthenticated, async (req: any, res) => {
-    try {
-      const reports = await storage.getTodayApprovedReports();
-      res.json(reports);
-    } catch (error) {
-      console.error("Error fetching today's approved reports:", error);
-      res.status(500).json({ message: "Failed to fetch today's approved reports" });
-    }
-  });
+  // (moved above)
 
   // PDF Generation route - Generate and save PDF on server
   app.post('/api/reports/:id/pdf/generate', isAuthenticated, async (req: any, res) => {
@@ -420,37 +498,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Batch PDF Generation - Generate PDF for today's approved reports
-  app.post('/api/reports/batch-pdf/generate', isAuthenticated, async (req: any, res) => {
+  app.post('/api/reports/bulk-print-today', isAuthenticated, async (req: any, res) => {
     try {
-      const reports = await storage.getTodayApprovedReports();
-      
-      if (reports.length === 0) {
-        return res.status(404).json({ message: "No approved reports found for today" });
+      const approved = await storage.getTodayApprovedReports();
+
+      if (approved.length === 0) {
+        return res.status(200).json({ success: true, message: "No approved reports for today", files: [], totalReports: 0 });
       }
 
-      const pdfDataList = reports.map(report => ({
-        reportNumber: report.reportNumber,
-        userNumber: report.userNumber,
-        bankCode: report.bankCode,
-        branchCode: report.branchCode,
-        companyName: report.companyName,
-        contactPersonName: report.contactPersonName,
-        handlerName: `${report.handler.firstName} ${report.handler.lastName}`,
-        approverName: report.approver ? `${report.approver.firstName} ${report.approver.lastName}` : '',
-        inquiryContent: report.inquiryContent,
-        responseContent: report.responseContent,
-        escalationRequired: report.escalationRequired,
-        escalationReason: report.escalationReason || undefined,
-        approvedAt: report.approvedAt || undefined,
-        createdAt: report.createdAt || 0
-      }));
+      // Group by bankCode and generate simple HTML content (client creates PDFs)
+      const grouped: Record<string, typeof approved> = {};
+      for (const r of approved) {
+        if (!grouped[r.bankCode]) grouped[r.bankCode] = [];
+        grouped[r.bankCode].push(r);
+      }
 
-      const { filename, filepath } = await pdfService.generateBatchReportsPdf(pdfDataList);
+      const today = new Date();
+      const y = today.getFullYear();
+      const m = String(today.getMonth() + 1).padStart(2, '0');
+      const d = String(today.getDate()).padStart(2, '0');
+      const dateStr = `${y}${m}${d}`;
 
-      res.download(filepath, filename);
+      const files = Object.entries(grouped).map(([bankCode, reports]) => {
+        const htmlContent = `<!doctype html><html><head><meta charset="utf-8"><title>${bankCode} Reports ${dateStr}</title></head><body>` +
+          reports.map((r) => `
+            <div style="page-break-after: always;">
+              <h2>報告書番号: ${r.reportNumber}</h2>
+              <div>企業名: ${r.companyName}</div>
+              <div>金融機関: ${r.bankCode} / 支店: ${r.branchCode}</div>
+              <div>承認日時: ${r.approvedAt ? new Date(r.approvedAt * 1000).toLocaleString('ja-JP') : ''}</div>
+              <hr />
+              <pre style="white-space: pre-wrap;">${r.responseContent}</pre>
+            </div>
+          `).join('') +
+          `</body></html>`;
+
+        return {
+          bankCode,
+          reportCount: reports.length,
+          filename: `${bankCode}_BULK_${dateStr}.pdf`,
+          htmlContent,
+        };
+      });
+
+      return res.json({ success: true, message: 'OK', files, totalReports: approved.length });
     } catch (error) {
-      console.error("Error generating batch PDF:", error);
-      res.status(500).json({ message: "Failed to generate batch PDF" });
+      console.error("Error generating bulk print payload:", error);
+      res.status(500).json({ success: false, message: "Failed to generate bulk print payload", files: [], totalReports: 0 });
     }
   });
 

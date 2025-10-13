@@ -59,7 +59,8 @@ export default function Home() {
     retry: false,
   });
 
-  const { data: todayApprovedReports = [], isLoading: todayApprovedLoading } = useQuery<ReportWithDetails[]>({
+  // 今日承認済みの件数（/api/reports/today-approved は { success, reportCount, reportsByBank, message } を返す）
+  const { data: todayApprovedSummary, isLoading: todayApprovedLoading } = useQuery<{ reportCount: number } | any>({
     queryKey: ["/api/reports", "today-approved"],
     retry: false,
   });
@@ -162,9 +163,12 @@ export default function Home() {
 
   const handleBatchPrint = async () => {
     try {
-      const response = await fetch('/api/reports/batch-pdf/generate', {
+      const response = await fetch('/api/reports/bulk-pdf/generate', {
         method: 'POST',
         credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
       });
 
       if (!response.ok) {
@@ -172,21 +176,19 @@ export default function Home() {
         throw new Error(error.message || 'Failed to generate batch PDF');
       }
 
-      // Download the PDF
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `batch_reports_${new Date().toISOString().split('T')[0]}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-
-      toast({
-        title: "PDF生成完了",
-        description: "今日承認した報告書をまとめて印刷しました。",
-      });
+      const result = await response.json();
+      
+      if (result.success) {
+        toast({
+          title: "PDF生成完了",
+          description: `${result.filename} がサーバーに保存されました。`,
+        });
+      } else {
+        toast({
+          title: "情報",
+          description: result.message || 'PDF生成に失敗しました',
+        });
+      }
     } catch (error: any) {
       toast({
         title: "PDF生成エラー",
@@ -247,14 +249,14 @@ export default function Home() {
           <div className="space-y-6">
             {/* Statistics Cards with Batch Print Button */}
             <div className="space-y-4">
-              {(todayApprovedReports as any[]).length > 0 && (
+              {(todayApprovedSummary?.reportCount ?? 0) > 0 && (
                 <div className="flex justify-end">
                   <Button 
                     onClick={handleBatchPrint}
                     className="bg-primary text-white hover:bg-primary/90 shadow-md"
                   >
                     <Printer className="mr-2 h-4 w-4" />
-                    今日承認した報告書をまとめて印刷 ({(todayApprovedReports as any[]).length}件)
+                    今日承認した報告書をまとめて印刷 ({todayApprovedSummary?.reportCount ?? 0}件)
                   </Button>
                 </div>
               )}
