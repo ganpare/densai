@@ -2,14 +2,15 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# puppeteer用の依存関係をインストール
+# puppeteer用の依存関係と日本語フォントをインストール
 RUN apk add --no-cache \
     chromium \
     nss \
     freetype \
     harfbuzz \
     ca-certificates \
-    ttf-freefont
+    ttf-freefont \
+    font-noto-cjk
 
 # puppeteerがインストール済みのChromiumを使用するように設定
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
