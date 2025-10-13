@@ -10,7 +10,9 @@ RUN apk add --no-cache \
     harfbuzz \
     ca-certificates \
     ttf-freefont \
-    font-noto-cjk
+    font-noto-cjk \
+    font-ipa \
+    font-dejavu
 
 # puppeteerがインストール済みのChromiumを使用するように設定
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
@@ -24,9 +26,6 @@ COPY . .
 
 # ビルド実行
 RUN npm run build
-
-# PDFファイル保存用ディレクトリの作成
-RUN mkdir -p uploads/pdfs
 
 # ポート公開
 EXPOSE 5000
