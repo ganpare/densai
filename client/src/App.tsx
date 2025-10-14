@@ -14,6 +14,7 @@ import History from "@/pages/history";
 import UserManagement from "@/pages/user-management";
 import Settings from "@/pages/settings";
 import UserSwitcherPage from "@/pages/user-switcher-page";
+import BulkPrintPage from "@/pages/bulk-print";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -36,6 +37,7 @@ function Router() {
       ) : (
         <>
           <Route path="/" component={Home} />
+          <Route path="/bulk-print" component={BulkPrintPage} />
           <Route path="/reports/new" component={ReportForm} />
           <Route path="/reports/:id/edit" component={ReportForm} />
           <Route path="/approval" component={Approval} />

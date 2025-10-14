@@ -74,11 +74,10 @@ export default function Sidebar() {
     },
     {
       name: "一括印刷",
-      href: "#",
+      href: "/bulk-print",
       icon: Calendar,
-      current: false,
-      onClick: () => setShowBulkPrintModal(true),
-      show: true, // 一時的にすべてのユーザーに表示
+      current: location === "/bulk-print",
+      show: true,
     },
     {
       name: "履歴・検索",

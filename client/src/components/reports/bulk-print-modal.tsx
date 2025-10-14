@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -16,7 +16,7 @@ interface BulkPrintModalProps {
 interface TodayReportsResponse {
   success: boolean;
   reportCount: number;
-  reportsByBank: Record<string, number>;
+  reportsByBank: Record<string, any[]>; // サーバは配列（各銀行のレポート配列）を返す
 }
 
 interface BulkPrintFile {
@@ -40,7 +40,7 @@ const templateOptions = [
   { value: 'original', label: '従来形式', description: '現在のテンプレート' },
 ];
 
-export default function BulkPrintModal({ onClose }: BulkPrintModalProps) {
+export default function BulkPrintModal({ onClose, inline = false as any }: BulkPrintModalProps & { inline?: boolean }) {
   const { toast } = useToast();
   const [selectedTemplate, setSelectedTemplate] = useState('simple');
   const [processingBankCode, setProcessingBankCode] = useState<string | null>(null);
@@ -112,14 +112,14 @@ export default function BulkPrintModal({ onClose }: BulkPrintModalProps) {
   const isLoadingData = isLoading || bulkPrintMutation.isPending;
   const hasReports = todayData?.reportCount && todayData.reportCount > 0;
 
-  return (
-    <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>一括PDF生成</DialogTitle>
-        </DialogHeader>
-        
-        <div className="space-y-6">
+  const content = (
+    <div className="space-y-6">
+      {!inline && (
+        <>
+          <h2 className="sr-only">一括PDF生成</h2>
+          <p className="sr-only">今日承認済みの報告書を、金融機関別にまとめてPDF化します。テンプレートを選択してください。</p>
+        </>
+      )}
           {/* 今日の報告書状況 */}
           <div className="space-y-2">
             <h3 className="text-sm font-medium">今日の承認済み報告書</h3>
@@ -134,12 +134,15 @@ export default function BulkPrintModal({ onClose }: BulkPrintModalProps) {
                   合計 <span className="font-bold">{todayData.reportCount}</span> 件の報告書
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  {Object.entries(todayData.reportsByBank).map(([bankCode, count]) => (
-                    <div key={bankCode} className="flex justify-between text-sm border rounded p-2">
-                      <span>金融機関 {bankCode}</span>
-                      <span className="font-bold">{count}件</span>
-                    </div>
-                  ))}
+                  {Object.entries(todayData.reportsByBank).map(([bankCode, list]) => {
+                    const count = Array.isArray(list) ? list.length : (typeof list === 'number' ? list : 0);
+                    return (
+                      <div key={bankCode} className="flex justify-between text-sm border rounded p-2">
+                        <span>金融機関 {bankCode}</span>
+                        <span className="font-bold">{count}件</span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             ) : (
@@ -173,12 +176,15 @@ export default function BulkPrintModal({ onClose }: BulkPrintModalProps) {
               <div className="text-sm text-blue-800">
                 <div className="font-medium mb-1">生成されるPDFファイル:</div>
                 <ul className="space-y-1">
-                  {Object.entries(todayData.reportsByBank).map(([bankCode, count]) => (
-                    <li key={bankCode}>
-                      • <span className="font-mono">{new Date().toISOString().slice(0, 10).replace(/-/g, '')}_{bankCode}.pdf</span>
-                      <span className="text-blue-600"> ({count}件)</span>
-                    </li>
-                  ))}
+                  {Object.entries(todayData.reportsByBank).map(([bankCode, list]) => {
+                    const count = Array.isArray(list) ? list.length : (typeof list === 'number' ? list : 0);
+                    return (
+                      <li key={bankCode}>
+                        • <span className="font-mono">{new Date().toISOString().slice(0, 10).replace(/-/g, '')}_{bankCode}.pdf</span>
+                        <span className="text-blue-600"> ({count}件)</span>
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
             </div>
@@ -206,7 +212,31 @@ export default function BulkPrintModal({ onClose }: BulkPrintModalProps) {
               {isLoadingData ? "生成中..." : "PDF生成"}
             </Button>
           </div>
+    </div>
+  );
+
+  if (inline) {
+    return (
+      <div className="max-w-3xl mx-auto">
+        <div className="mb-4">
+          <h1 className="text-xl font-semibold">一括PDF生成</h1>
+          <p className="text-sm text-muted-foreground">今日承認済みの報告書を、金融機関別にまとめてPDF化します。テンプレートを選択してください。</p>
         </div>
+        {content}
+      </div>
+    );
+  }
+
+  return (
+    <Dialog open={true} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>一括PDF生成</DialogTitle>
+          <DialogDescription>
+            今日承認済みの報告書を、金融機関別にまとめてPDF化します。テンプレートを選択してください。
+          </DialogDescription>
+        </DialogHeader>
+        {content}
       </DialogContent>
     </Dialog>
   );
