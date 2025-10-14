@@ -53,7 +53,21 @@ export async function htmlToPdfFile(html: string, outPath: string) {
  */
 export async function generateReportPdf(data: Record<string, string | number | undefined | null>, outFile: string) {
   const templatePath = path.join(__dirname, '..', 'server', 'templates', 'report-pdf.html');
-  const template = await fs.readFile(templatePath, 'utf8');
+  let template = await fs.readFile(templatePath, 'utf8');
+
+  // inline external css if marker is present: <!-- @css: ./styles/modern.css -->
+  const cssMarkerMatch = template.match(/<!--\s*@css:\s*([^\s]+)\s*-->/);
+  if (cssMarkerMatch) {
+    const cssRelPath = cssMarkerMatch[1];
+    const cssPath = path.join(path.dirname(templatePath), cssRelPath);
+    try {
+      const cssContent = await fs.readFile(cssPath, 'utf8');
+      template = template.replace(cssMarkerMatch[0], `<style>\n${cssContent}\n</style>`);
+    } catch (e) {
+      console.warn(`[generateReportPdf] Failed to inline CSS at ${cssRelPath}:`, e);
+    }
+  }
+
   const html = fillTemplate(template, data);
   await htmlToPdfFile(html, outFile);
 }
