@@ -52,7 +52,7 @@ export async function htmlToPdfFile(html: string, outPath: string) {
  * テンプレートファイルを読み込み、データを埋め込んでPDF化し保存
  */
 export async function generateReportPdf(data: Record<string, string | number | undefined | null>, outFile: string) {
-  const templatePath = path.join(__dirname, 'templates', 'report-pdf.html');
+  const templatePath = path.join(__dirname, '..', 'server', 'templates', 'report-pdf.html');
   const template = await fs.readFile(templatePath, 'utf8');
   const html = fillTemplate(template, data);
   await htmlToPdfFile(html, outFile);

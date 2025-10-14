@@ -21,6 +21,51 @@ import { dirname } from "path";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+// 複数レポート用HTML生成関数
+function generateMultiReportHtml(template: string, reports: any[], bankCode: string): string {
+  const formatDate = (timestamp: number): string => {
+    if (!timestamp) return '';
+    const date = new Date(timestamp * 1000);
+    return date.toLocaleDateString('ja-JP', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  let htmlBlocks = '';
+  reports.forEach((report, index) => {
+    if (index > 0) {
+      htmlBlocks += '<div style="page-break-before: always;"></div>';
+    }
+    
+    // テンプレート変数を置換
+    let reportHtml = template
+      .replace(/{{reportNumber}}/g, report.reportNumber || '')
+      .replace(/{{userNumber}}/g, report.userNumber || '')
+      .replace(/{{bankCode}}/g, report.bankCode || '')
+      .replace(/{{branchCode}}/g, report.branchCode || '')
+      .replace(/{{companyName}}/g, report.companyName || '')
+      .replace(/{{contactPersonName}}/g, report.contactPersonName || '')
+      .replace(/{{handlerName}}/g, `${report.handler?.lastName || ''} ${report.handler?.firstName || ''}`.trim())
+      .replace(/{{approverName}}/g, `${report.approver?.lastName || ''} ${report.approver?.firstName || ''}`.trim())
+      .replace(/{{inquiryContent}}/g, report.inquiryContent || '')
+      .replace(/{{responseContent}}/g, report.responseContent || '')
+      .replace(/{{escalationRequired}}/g, report.escalationRequired ? '必要' : '不要')
+      .replace(/{{escalationReason}}/g, report.escalationReason || '')
+      .replace(/{{createdAt}}/g, formatDate(report.createdAt))
+      .replace(/{{approvedAt}}/g, formatDate(report.approvedAt))
+      .replace(/{{status}}/g, report.status || '')
+      .replace(/{{id}}/g, report.id || '');
+    
+    htmlBlocks += reportHtml;
+  });
+
+  return htmlBlocks;
+}
+
 export async function registerRoutes(app: express.Express): Promise<Server> {
   // Auth middleware
   await setupAuth(app);
@@ -233,50 +278,85 @@ export async function registerRoutes(app: express.Express): Promise<Server> {
     }
   });
 
-  // Generate bulk PDF for today's approved reports
+  // Generate bulk PDF for today's approved reports grouped by bank code
   app.post('/api/reports/bulk-pdf/generate', isAuthenticated, async (req: any, res) => {
     try {
+      const { template = 'simple' } = req.body; // テンプレート選択パラメータ
       const approved = await storage.getTodayApprovedReports();
+      
       if (approved.length === 0) {
-        return res.status(200).json({ success: true, message: "No approved reports for today", filename: null });
+        return res.status(200).json({ 
+          success: true, 
+          message: "No approved reports for today", 
+          files: [] 
+        });
       }
 
-      // 1つのHTMLに全件分を連結
-      let htmlBlocks = '';
-      for (const r of approved) {
-        htmlBlocks += `<div style='page-break-after: always;'>`;
-        htmlBlocks += `
-          <div><b>報告書番号:</b> ${r.reportNumber}</div>
-          <div><b>利用者番号:</b> ${r.userNumber}</div>
-          <div><b>名称:</b> ${r.companyName}</div>
-          <div><b>問合せ内容:</b> ${r.inquiryContent}</div>
-          <div><b>対応内容:</b> ${r.responseContent}</div>
-        `;
-        htmlBlocks += `</div>`;
+      // 金融機関番号ごとにグループ化
+      const reportsByBank = new Map<string, any[]>();
+      for (const report of approved) {
+        const bankCode = report.bankCode;
+        if (!reportsByBank.has(bankCode)) {
+          reportsByBank.set(bankCode, []);
+        }
+        reportsByBank.get(bankCode)!.push(report);
       }
 
-      // テンプレートを読み込み、{{content}}を置換
-      const templatePath = path.join(__dirname, 'templates', 'report-pdf.html');
-      let template = fs.readFileSync(templatePath, 'utf8');
-      template = template.replace(/<div class="container">([\s\S]*?)<\/div>/, `<div class="container">{{content}}</div>`);
-      const html = template.replace('{{content}}', htmlBlocks);
-
-      // PDF生成
+      const generatedFiles = [];
       const today = new Date();
-      const y = today.getFullYear();
-      const m = String(today.getMonth() + 1).padStart(2, '0');
-      const d = String(today.getDate()).padStart(2, '0');
-      const filename = `bulk_${y}${m}${d}.pdf`;
-      const outPath = path.join(__dirname, '..', 'uploads', 'pdfs', filename);
+      const dateStr = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`;
 
-      console.log(`[PDF Generation] Generating PDF for ${approved.length} reports...`);
-      await htmlToPdfFile(html, outPath);
-      console.log(`[PDF Generation] PDF saved to ${outPath}`);
+      // 各金融機関ごとにPDF生成
+      for (const [bankCode, reports] of reportsByBank) {
+        const filename = `${dateStr}_${bankCode}.pdf`;
+        const outPath = path.join(__dirname, '..', 'uploads', 'pdfs', filename);
 
-      return res.json({ success: true, message: 'PDF generated', filename });
+        // テンプレート選択
+        const templateFile = `report-pdf-${template}.html`;
+        const templatePath = path.join(__dirname, '..', 'server', 'templates', templateFile);
+        
+        if (!fs.existsSync(templatePath)) {
+          console.warn(`Template ${templateFile} not found, using default`);
+          const defaultTemplatePath = path.join(__dirname, '..', 'server', 'templates', 'report-pdf-simple.html');
+          if (fs.existsSync(defaultTemplatePath)) {
+            const template = fs.readFileSync(defaultTemplatePath, 'utf8');
+            const html = generateMultiReportHtml(template, reports, bankCode);
+            
+            console.log(`[PDF Generation] Generating PDF for bank ${bankCode} with ${reports.length} reports...`);
+            await htmlToPdfFile(html, outPath);
+            console.log(`[PDF Generation] PDF saved to ${outPath}`);
+            
+            generatedFiles.push({
+              filename,
+              bankCode,
+              reportCount: reports.length
+            });
+          }
+        } else {
+          const template = fs.readFileSync(templatePath, 'utf8');
+          const html = generateMultiReportHtml(template, reports, bankCode);
+          
+          console.log(`[PDF Generation] Generating PDF for bank ${bankCode} with ${reports.length} reports...`);
+          await htmlToPdfFile(html, outPath);
+          console.log(`[PDF Generation] PDF saved to ${outPath}`);
+          
+          generatedFiles.push({
+            filename,
+            bankCode,
+            reportCount: reports.length
+          });
+        }
+      }
+
+      return res.json({ 
+        success: true, 
+        message: `Generated ${generatedFiles.length} PDF files for ${approved.length} reports`,
+        files: generatedFiles,
+        totalReports: approved.length
+      });
     } catch (error) {
       console.error("Error generating bulk PDF:", error);
-      res.status(500).json({ success: false, message: "Failed to generate bulk PDF", filename: null });
+      return res.status(500).json({ message: "Failed to generate bulk PDF" });
     }
   });
 

@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 15mm;
+    }
+
+    body { 
+      font-family: 'Noto Sans CJK JP', 'Noto Serif CJK JP', 'Noto Sans JP', 'IPAGothic', 'IPAMincho', 'VL Gothic', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'MS Gothic', 'MS Mincho', 'Meiryo', 'Yu Gothic', 'Yu Mincho', sans-serif; 
+      margin: 0; 
+    }
+    .container { width: 180mm; height: 267mm; padding: 10mm; box-sizing: border-box; }
+    .row { display: flex; }
+    .cell { border: 1px solid #333; padding: 4px 8px; font-size: 12px; }
+    .cell-header { background: #f5f5f5; font-weight: bold; }
+    .table { border-collapse: collapse; width: 100%; margin-bottom: 8px; }
+    .table td, .table th { border: 1px solid #333; padding: 4px 8px; font-size: 12px; }
+    .section-title { font-weight: bold; margin-top: 12px; margin-bottom: 4px; }
+    .box { border: 1px solid #333; min-height: 32mm; padding: 8px; margin-bottom: 8px; white-space: pre-wrap; word-wrap: break-word; }
+    .right { text-align: right; }
+    .nowrap { white-space: nowrap; }
+    .header { text-align: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid #333; }
+    .title { font-size: 16pt; font-weight: bold; margin-bottom: 5px; }
+    .report-number { font-size: 10pt; color: #666; }
+    .footer { margin-top: 20px; display: flex; justify-content: space-between; align-items: end; }
+    .signature-box { border: 1px solid #333; width: 60px; height: 20px; text-align: center; line-height: 20px; font-size: 10pt; }
+    .escalation-info { background-color: #fff3cd; border: 1px solid #ffeaa7; padding: 8px; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- ヘッダー -->
+    <div class="header">
+      <div class="title">電子債権問い合わせ対応報告書</div>
+      <div class="report-number">報告書番号: {{reportNumber}}</div>
+    </div>
+
+    <!-- 基本情報テーブル -->
+    <table class="table">
+      <tr>
+        <td class="cell-header nowrap">金融機関番号</td>
+        <td class="cell nowrap">{{bankCode}}</td>
+        <td class="cell-header right nowrap">対応日付</td>
+        <td class="cell nowrap">{{createdAt}}</td>
+      </tr>
+      <tr>
+        <td class="cell-header nowrap">支店番号</td>
+        <td class="cell nowrap">{{branchCode}}</td>
+        <td class="cell-header nowrap">利用者番号</td>
+        <td class="cell nowrap">{{userNumber}}</td>
+      </tr>
+      <tr>
+        <td class="cell-header nowrap">名称</td>
+        <td class="cell nowrap">{{companyName}}</td>
+        <td class="cell-header nowrap">受電時刻</td>
+        <td class="cell nowrap">{{createdAt}}</td>
+      </tr>
+      <tr>
+        <td class="cell-header nowrap">対応完了時刻</td>
+        <td class="cell nowrap">{{approvedAt}}</td>
+        <td class="cell-header nowrap">エスカレーション</td>
+        <td class="cell nowrap">{{escalationRequired}}</td>
+      </tr>
+      <tr>
+        <td class="cell-header nowrap">企業対応者</td>
+        <td class="cell nowrap">{{contactPersonName}}</td>
+        <td class="cell-header nowrap">当社対応者</td>
+        <td class="cell nowrap">{{handlerName}}</td>
+      </tr>
+      <tr>
+        <td class="cell-header nowrap">承認者</td>
+        <td class="cell nowrap">{{approverName}}</td>
+        <td class="cell-header nowrap"></td>
+        <td class="cell nowrap"></td>
+      </tr>
+    </table>
+
+    <!-- 問い合わせ内容 -->
+    <div class="section-title">問合せ内容</div>
+    <div class="box">{{inquiryContent}}</div>
+
+    <!-- 対応内容 -->
+    <div class="section-title">対応内容</div>
+    <div class="box" style="min-height: 40mm;">{{responseContent}}</div>
+
+    <!-- エスカレーション情報 -->
+    <div class="escalation-info" style="display: {{escalationRequired}} === '必要' ? 'block' : 'none';">
+      <strong>エスカレーション理由:</strong><br>
+      {{escalationReason}}
+    </div>
+
+    <!-- フッター -->
+    <div class="footer">
+      <div>
+        <div>承認者: {{approverName}}</div>
+        <div>承認日: {{approvedAt}}</div>
+      </div>
+      <div class="signature-box">承認印</div>
+    </div>
+  </div>
+</body>
+</html>

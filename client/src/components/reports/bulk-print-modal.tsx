@@ -1,14 +1,13 @@
 import { useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { isUnauthorizedError } from "@/lib/authUtils";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { X, Calendar, FileText, Printer, Download, Building, Clock } from "lucide-react";
-import jsPDF from 'jspdf';
+import { isUnauthorizedError } from "@/lib/authUtils";
+import { FileDown, Loader2 } from "lucide-react";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 
 interface BulkPrintModalProps {
   onClose: () => void;
@@ -17,15 +16,13 @@ interface BulkPrintModalProps {
 interface TodayReportsResponse {
   success: boolean;
   reportCount: number;
-  reportsByBank: { [bankCode: string]: any[] };
-  message: string;
+  reportsByBank: Record<string, number>;
 }
 
 interface BulkPrintFile {
+  filename: string;
   bankCode: string;
   reportCount: number;
-  filename: string;
-  htmlContent: string;
 }
 
 interface BulkPrintResponse {
@@ -35,8 +32,17 @@ interface BulkPrintResponse {
   totalReports: number;
 }
 
+const templateOptions = [
+  { value: 'simple', label: 'シンプル形式', description: '基本的な表形式レイアウト' },
+  { value: 'classic', label: 'クラシック形式', description: '従来型のレイアウト' },
+  { value: 'modern', label: 'モダン形式', description: 'カード型のモダンデザイン' },
+  { value: 'compact', label: 'コンパクト形式', description: '情報密度の高いレイアウト' },
+  { value: 'original', label: '従来形式', description: '現在のテンプレート' },
+];
+
 export default function BulkPrintModal({ onClose }: BulkPrintModalProps) {
   const { toast } = useToast();
+  const [selectedTemplate, setSelectedTemplate] = useState('simple');
   const [processingBankCode, setProcessingBankCode] = useState<string | null>(null);
 
   // Fetch today's approved reports
@@ -52,34 +58,34 @@ export default function BulkPrintModal({ onClose }: BulkPrintModalProps) {
   // Bulk print mutation
   const bulkPrintMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/reports/bulk-print-today", {});
+      const response = await apiRequest("POST", "/api/reports/bulk-pdf/generate", {
+        template: selectedTemplate
+      });
       const result = await response.json();
       return result;
     },
-    onSuccess: async (data: BulkPrintResponse) => {
+    onSuccess: (data: BulkPrintResponse) => {
       if (data.files && data.files.length > 0) {
-        // Process each bank's PDF
-        for (const file of data.files) {
-          setProcessingBankCode(file.bankCode);
-          await generateAndDownloadPDF(file);
-          // Small delay between downloads
-          await new Promise(resolve => setTimeout(resolve, 500));
-        }
-        setProcessingBankCode(null);
-        
         toast({
-          title: "一括印刷完了",
-          description: `${data.files.length}の金融機関、合計${data.totalReports}件の報告書を印刷しました。`,
+          title: "一括PDF生成完了",
+          description: `${data.files.length}の金融機関、合計${data.totalReports}件の報告書のPDFを生成しました。`,
         });
+        
+        // 生成されたファイル情報を表示
+        console.log("Generated files:", data.files);
+        data.files.forEach(file => {
+          console.log(`- ${file.filename}: 金融機関${file.bankCode} (${file.reportCount}件)`);
+        });
+        
+        onClose();
       } else {
         toast({
-          title: "印刷対象なし",
+          title: "生成対象なし",
           description: "本日承認済みの報告書はありません。",
         });
       }
     },
     onError: (error: Error) => {
-      setProcessingBankCode(null);
       if (isUnauthorizedError(error)) {
         toast({
           title: "Unauthorized",
@@ -92,262 +98,114 @@ export default function BulkPrintModal({ onClose }: BulkPrintModalProps) {
         return;
       }
       toast({
-        title: "一括印刷エラー",
-        description: "一括印刷に失敗しました。",
+        title: "PDF生成エラー",
+        description: "一括PDF生成に失敗しました。",
         variant: "destructive",
       });
     },
   });
 
-  // Convert HTML to PDF and trigger download
-  const generateAndDownloadPDF = async (file: BulkPrintFile) => {
-    try {
-      // Create a temporary div to render HTML
-      const tempDiv = document.createElement('div');
-      tempDiv.innerHTML = file.htmlContent;
-      tempDiv.style.position = 'absolute';
-      tempDiv.style.left = '-9999px';
-      tempDiv.style.width = '210mm'; // A4 width
-      document.body.appendChild(tempDiv);
-
-      // Create PDF using jsPDF
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4'
-      });
-
-      // Get text content and create PDF
-      const content = tempDiv.textContent || '';
-      const lines = pdf.splitTextToSize(content, 180);
-      
-      let yPos = 20;
-      lines.forEach((line: string) => {
-        if (yPos > 280) { // New page if near bottom
-          pdf.addPage();
-          yPos = 20;
-        }
-        pdf.text(line, 15, yPos);
-        yPos += 7;
-      });
-
-      // Clean up
-      document.body.removeChild(tempDiv);
-
-      // Download PDF
-      pdf.save(file.filename);
-
-    } catch (error) {
-      console.error('PDF generation error for bank', file.bankCode, ':', error);
-      toast({
-        title: "PDF生成エラー",
-        description: `金融機関コード ${file.bankCode} のPDF生成に失敗しました。`,
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleBulkPrint = () => {
+  const handleGenerateClick = () => {
     bulkPrintMutation.mutate();
   };
 
-  const handleRefresh = () => {
-    refetch();
-  };
-
-  const todayDate = new Date().toLocaleDateString('ja-JP', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit'
-  });
-
-  const isProcessing = isLoading || bulkPrintMutation.isPending;
-  const reportsByBank = todayData?.reportsByBank || {};
-  const bankCodes = Object.keys(reportsByBank);
+  const isLoadingData = isLoading || bulkPrintMutation.isPending;
+  const hasReports = todayData?.reportCount && todayData.reportCount > 0;
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-auto" data-testid="dialog-bulk-print">
-        <DialogHeader className="border-b border-border pb-4">
-          <div className="flex items-center justify-between">
-            <DialogTitle className="flex items-center">
-              <Calendar className="mr-2 h-5 w-5" />
-              当日報告書 一括印刷
-            </DialogTitle>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onClose}
-              disabled={isProcessing}
-              data-testid="button-close-bulk-print"
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
+      <DialogContent className="sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>一括PDF生成</DialogTitle>
         </DialogHeader>
         
-        <div className="space-y-6 py-4">
-          {/* Header Info */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
+        <div className="space-y-6">
+          {/* 今日の報告書状況 */}
+          <div className="space-y-2">
+            <h3 className="text-sm font-medium">今日の承認済み報告書</h3>
+            {isLoading ? (
               <div className="flex items-center space-x-2">
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">対象日:</span>
-                <span className="font-medium">{todayDate}</span>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span className="text-sm text-muted-foreground">読み込み中...</span>
               </div>
-              <div className="flex items-center space-x-2">
-                <FileText className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">承認済み報告書:</span>
-                <Badge variant="secondary">
-                  {todayData?.reportCount || 0}件
-                </Badge>
+            ) : hasReports ? (
+              <div className="space-y-2">
+                <div className="text-sm">
+                  合計 <span className="font-bold">{todayData.reportCount}</span> 件の報告書
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {Object.entries(todayData.reportsByBank).map(([bankCode, count]) => (
+                    <div key={bankCode} className="flex justify-between text-sm border rounded p-2">
+                      <span>金融機関 {bankCode}</span>
+                      <span className="font-bold">{count}件</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleRefresh}
-              disabled={isProcessing}
-              data-testid="button-refresh-today"
-            >
-              更新
-            </Button>
+            ) : (
+              <div className="text-sm text-muted-foreground">
+                本日承認済みの報告書はありません。
+              </div>
+            )}
           </div>
 
-          {/* Loading State */}
-          {isProcessing && !processingBankCode && (
-            <Card>
-              <CardContent className="py-8">
-                <div className="text-center">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-                  <div className="text-muted-foreground">データを読み込み中...</div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* No Reports */}
-          {!isProcessing && bankCodes.length === 0 && (
-            <Card>
-              <CardContent className="py-8">
-                <div className="text-center text-muted-foreground">
-                  <Clock className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                  <div className="text-lg font-medium mb-2">本日承認済みの報告書はありません</div>
-                  <div className="text-sm">報告書が承認されると、こちらに表示されます。</div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Banks List */}
-          {!isProcessing && bankCodes.length > 0 && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold">金融機関別報告書</h3>
-                <Button
-                  onClick={handleBulkPrint}
-                  disabled={bulkPrintMutation.isPending}
-                  className="bg-primary text-primary-foreground hover:bg-primary/90"
-                  data-testid="button-start-bulk-print"
-                >
-                  <Download className="mr-2 h-4 w-4" />
-                  {bulkPrintMutation.isPending ? "印刷中..." : "一括印刷実行"}
-                </Button>
+          {/* テンプレート選択 */}
+          <div className="space-y-3">
+            <h3 className="text-sm font-medium">テンプレート選択</h3>
+            <RadioGroup value={selectedTemplate} onValueChange={setSelectedTemplate}>
+              <div className="space-y-3">
+                {templateOptions.map((option) => (
+                  <div key={option.value} className="flex items-center space-x-3">
+                    <RadioGroupItem value={option.value} id={option.value} />
+                    <Label htmlFor={option.value} className="flex-1 cursor-pointer">
+                      <div className="font-medium">{option.label}</div>
+                      <div className="text-sm text-muted-foreground">{option.description}</div>
+                    </Label>
+                  </div>
+                ))}
               </div>
+            </RadioGroup>
+          </div>
 
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {bankCodes.map((bankCode) => {
-                  const reports = reportsByBank[bankCode];
-                  const isProcessing = processingBankCode === bankCode;
-
-                  return (
-                    <Card key={bankCode} className={`${isProcessing ? 'ring-2 ring-primary' : ''}`}>
-                      <CardHeader className="pb-3">
-                        <CardTitle className="flex items-center justify-between text-base">
-                          <div className="flex items-center space-x-2">
-                            <Building className="h-4 w-4" />
-                            <span>金融機関: {bankCode}</span>
-                          </div>
-                          {isProcessing && (
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-                          )}
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="pt-0">
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-muted-foreground">報告書件数:</span>
-                            <Badge variant="outline">{reports.length}件</Badge>
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {reports.slice(0, 3).map((report: any, index: number) => (
-                              <div key={index} className="truncate">
-                                • {report.reportNumber} - {report.companyName}
-                              </div>
-                            ))}
-                            {reports.length > 3 && (
-                              <div className="text-center pt-1">
-                                ... 他{reports.length - 3}件
-                              </div>
-                            )}
-                          </div>
-                          {isProcessing && (
-                            <div className="text-xs text-primary font-medium text-center pt-2">
-                              PDF生成中...
-                            </div>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
+          {/* 生成情報 */}
+          {hasReports && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="text-sm text-blue-800">
+                <div className="font-medium mb-1">生成されるPDFファイル:</div>
+                <ul className="space-y-1">
+                  {Object.entries(todayData.reportsByBank).map(([bankCode, count]) => (
+                    <li key={bankCode}>
+                      • <span className="font-mono">{new Date().toISOString().slice(0, 10).replace(/-/g, '')}_{bankCode}.pdf</span>
+                      <span className="text-blue-600"> ({count}件)</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
             </div>
           )}
 
-          {/* Processing Status */}
+          {/* 処理中表示 */}
           {processingBankCode && (
-            <Card className="border-primary">
-              <CardContent className="py-4">
-                <div className="flex items-center space-x-3">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-                  <div>
-                    <div className="font-medium">PDF生成中...</div>
-                    <div className="text-sm text-muted-foreground">
-                      金融機関コード: {processingBankCode}
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <div className="flex items-center space-x-2 text-sm text-blue-600">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>金融機関 {processingBankCode} のPDFを生成中...</span>
+            </div>
           )}
 
-          {/* Instructions */}
-          <Card className="bg-muted/30">
-            <CardContent className="py-4">
-              <div className="text-sm text-muted-foreground">
-                <div className="font-medium mb-2">💡 一括印刷について:</div>
-                <ul className="space-y-1 list-disc list-inside">
-                  <li>本日承認された報告書を金融機関コード別にPDFファイルとして出力します</li>
-                  <li>同じ金融機関の報告書は1つのPDFファイルにまとめられます</li>
-                  <li>ファイル名形式: {`{金融機関コード}_BULK_{YYYYMMDD}_{連番}.pdf`}</li>
-                  <li>承認者・担当者どちらでも実行可能です</li>
-                </ul>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-        
-        {/* Footer */}
-        <div className="border-t border-border pt-4 flex justify-end">
-          <Button 
-            variant="outline" 
-            onClick={onClose}
-            disabled={isLoading}
-            data-testid="button-close"
-          >
-            閉じる
-          </Button>
+          {/* ボタン */}
+          <div className="flex justify-end space-x-2 pt-4">
+            <Button variant="outline" onClick={onClose} disabled={isLoadingData}>
+              キャンセル
+            </Button>
+            <Button 
+              onClick={handleGenerateClick} 
+              disabled={isLoadingData || !hasReports}
+              className="flex items-center"
+            >
+              <FileDown className="mr-2 h-4 w-4" />
+              {isLoadingData ? "生成中..." : "PDF生成"}
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

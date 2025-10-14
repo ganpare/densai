@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 10mm;
+    }
+
+    body {
+      font-family: "MS Gothic", "Meiryo", monospace;
+      font-size: 10pt;
+      line-height: 1.4;
+      margin: 0;
+    }
+
+    .container {
+      width: 190mm;
+      padding: 5mm;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 8mm;
+      border: 2px solid #000;
+      padding: 3mm;
+      background-color: #f0f0f0;
+    }
+
+    .title {
+      font-size: 14pt;
+      font-weight: bold;
+      margin-bottom: 2mm;
+    }
+
+    .report-info {
+      font-size: 8pt;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .info-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 5mm;
+      font-size: 9pt;
+    }
+
+    .info-table td {
+      border: 1px solid #000;
+      padding: 2mm;
+      vertical-align: top;
+    }
+
+    .info-table .label {
+      background-color: #e8e8e8;
+      font-weight: bold;
+      width: 25%;
+      text-align: center;
+    }
+
+    .info-table .value {
+      width: 25%;
+    }
+
+    .content-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 5mm;
+      font-size: 9pt;
+    }
+
+    .content-table th {
+      border: 1px solid #000;
+      background-color: #e8e8e8;
+      padding: 2mm;
+      font-weight: bold;
+      text-align: center;
+    }
+
+    .content-table td {
+      border: 1px solid #000;
+      padding: 3mm;
+      vertical-align: top;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+
+    .footer {
+      margin-top: 8mm;
+      display: flex;
+      justify-content: space-between;
+      align-items: end;
+      font-size: 8pt;
+      border-top: 1px solid #000;
+      padding-top: 3mm;
+    }
+
+    .signature-area {
+      text-align: center;
+    }
+
+    .signature-box {
+      border: 1px solid #000;
+      width: 30mm;
+      height: 8mm;
+      margin: 0 auto;
+      line-height: 8mm;
+      font-size: 7pt;
+    }
+
+    .escalation-box {
+      border: 2px solid #ff6b6b;
+      background-color: #ffe0e0;
+      padding: 2mm;
+      margin-top: 3mm;
+      font-size: 8pt;
+    }
+
+    .status-indicator {
+      display: inline-block;
+      padding: 1mm 3mm;
+      border: 1px solid #000;
+      background-color: #90ee90;
+      font-size: 7pt;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- ヘッダー -->
+    <div class="header">
+      <div class="title">電子債権問い合わせ対応報告書</div>
+      <div class="report-info">
+        <span>報告書番号: {{reportNumber}}</span>
+        <span>作成日: {{createdAt}}</span>
+        <span class="status-indicator">承認済み</span>
+      </div>
+    </div>
+
+    <!-- 基本情報テーブル -->
+    <table class="info-table">
+      <tr>
+        <td class="label">利用者番号</td>
+        <td class="value">{{userNumber}}</td>
+        <td class="label">金融機関コード</td>
+        <td class="value">{{bankCode}}</td>
+      </tr>
+      <tr>
+        <td class="label">支店コード</td>
+        <td class="value">{{branchCode}}</td>
+        <td class="label">会社名</td>
+        <td class="value">{{companyName}}</td>
+      </tr>
+      <tr>
+        <td class="label">担当者名</td>
+        <td class="value">{{contactPersonName}}</td>
+        <td class="label">対応者</td>
+        <td class="value">{{handlerName}}</td>
+      </tr>
+      <tr>
+        <td class="label">承認者</td>
+        <td class="value">{{approverName}}</td>
+        <td class="label">承認日時</td>
+        <td class="value">{{approvedAt}}</td>
+      </tr>
+      <tr>
+        <td class="label">エスカレーション</td>
+        <td class="value">{{escalationRequired}}</td>
+        <td class="label"></td>
+        <td class="value"></td>
+      </tr>
+    </table>
+
+    <!-- 内容テーブル -->
+    <table class="content-table">
+      <tr>
+        <th width="50%">問い合わせ内容</th>
+        <th width="50%">対応内容</th>
+      </tr>
+      <tr>
+        <td>{{inquiryContent}}</td>
+        <td>{{responseContent}}</td>
+      </tr>
+    </table>
+
+    <!-- エスカレーション情報 -->
+    <div class="escalation-box" style="display: {{escalationRequired}} === '必要' ? 'block' : 'none';">
+      <strong>⚠️ エスカレーション理由:</strong><br>
+      {{escalationReason}}
+    </div>
+
+    <!-- フッター -->
+    <div class="footer">
+      <div>
+        <div>承認者: {{approverName}}</div>
+        <div>承認日: {{approvedAt}}</div>
+      </div>
+      <div class="signature-area">
+        <div>承認印</div>
+        <div class="signature-box"></div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

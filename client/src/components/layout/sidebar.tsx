@@ -78,14 +78,7 @@ export default function Sidebar() {
       icon: Calendar,
       current: false,
       onClick: () => setShowBulkPrintModal(true),
-      show: (() => {
-        try {
-          const roles = JSON.parse((user as any)?.roles || '[]');
-          return roles.includes('handler') || roles.includes('approver') || roles.includes('admin');
-        } catch {
-          return false;
-        }
-      })(),
+      show: true, // 一時的にすべてのユーザーに表示
     },
     {
       name: "履歴・検索",

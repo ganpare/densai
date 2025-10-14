@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 15mm;
+    }
+
+    body {
+      font-family: "Noto Sans JP", "Meiryo", "Hiragino Sans", sans-serif;
+      font-size: 11pt;
+      line-height: 1.6;
+      margin: 0;
+      color: #333;
+    }
+
+    .container {
+      max-width: 180mm;
+      margin: 0 auto;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 20px;
+      padding-bottom: 15px;
+      border-bottom: 2px solid #2563eb;
+    }
+
+    .title {
+      font-size: 20pt;
+      font-weight: bold;
+      color: #2563eb;
+      margin-bottom: 5px;
+    }
+
+    .subtitle {
+      font-size: 10pt;
+      color: #6b7280;
+    }
+
+    .card {
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      margin-bottom: 15px;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    .card-header {
+      background-color: #f9fafb;
+      padding: 12px 16px;
+      border-bottom: 1px solid #e5e7eb;
+      font-weight: bold;
+      font-size: 12pt;
+      color: #374151;
+    }
+
+    .card-body {
+      padding: 16px;
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+      margin-bottom: 15px;
+    }
+
+    .info-item {
+      display: flex;
+      margin-bottom: 8px;
+    }
+
+    .info-label {
+      font-weight: bold;
+      color: #6b7280;
+      min-width: 100px;
+      font-size: 10pt;
+    }
+
+    .info-value {
+      color: #111827;
+      font-size: 10pt;
+    }
+
+    .content-section {
+      margin-bottom: 15px;
+    }
+
+    .content-header {
+      background-color: #f3f4f6;
+      padding: 10px 16px;
+      font-weight: bold;
+      font-size: 11pt;
+      color: #374151;
+      border-left: 4px solid #2563eb;
+    }
+
+    .content-body {
+      padding: 16px;
+      background-color: #fafafa;
+      border: 1px solid #e5e7eb;
+      min-height: 80px;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      font-size: 10pt;
+      line-height: 1.5;
+    }
+
+    .escalation-card {
+      border-left: 4px solid #f59e0b;
+      background-color: #fffbeb;
+    }
+
+    .escalation-header {
+      background-color: #fef3c7;
+      color: #92400e;
+    }
+
+    .footer {
+      margin-top: 30px;
+      padding: 15px;
+      background-color: #f9fafb;
+      border-radius: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .approval-info {
+      font-size: 10pt;
+      color: #6b7280;
+    }
+
+    .signature-box {
+      border: 1px solid #d1d5db;
+      border-radius: 4px;
+      width: 80px;
+      height: 30px;
+      text-align: center;
+      line-height: 30px;
+      font-size: 9pt;
+      color: #6b7280;
+      background-color: white;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 12px;
+      font-size: 9pt;
+      font-weight: bold;
+    }
+
+    .status-approved {
+      background-color: #dcfce7;
+      color: #166534;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- ヘッダー -->
+    <div class="header">
+      <div class="title">電子債権問い合わせ対応報告書</div>
+      <div class="subtitle">Report No: {{reportNumber}}</div>
+    </div>
+
+    <!-- 基本情報カード -->
+    <div class="card">
+      <div class="card-header">📋 基本情報</div>
+      <div class="card-body">
+        <div class="info-grid">
+          <div>
+            <div class="info-item">
+              <span class="info-label">利用者番号:</span>
+              <span class="info-value">{{userNumber}}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">金融機関コード:</span>
+              <span class="info-value">{{bankCode}}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">支店コード:</span>
+              <span class="info-value">{{branchCode}}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">会社名:</span>
+              <span class="info-value">{{companyName}}</span>
+            </div>
+          </div>
+          <div>
+            <div class="info-item">
+              <span class="info-label">担当者:</span>
+              <span class="info-value">{{contactPersonName}}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">対応者:</span>
+              <span class="info-value">{{handlerName}}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">承認者:</span>
+              <span class="info-value">{{approverName}}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">作成日時:</span>
+              <span class="info-value">{{createdAt}}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 問い合わせ内容カード -->
+    <div class="card">
+      <div class="content-header">💬 問い合わせ内容</div>
+      <div class="content-body">{{inquiryContent}}</div>
+    </div>
+
+    <!-- 対応内容カード -->
+    <div class="card">
+      <div class="content-header">✅ 対応内容</div>
+      <div class="content-body">{{responseContent}}</div>
+    </div>
+
+    <!-- エスカレーション情報カード -->
+    <div class="card escalation-card" style="display: {{escalationRequired}} === '必要' ? 'block' : 'none';">
+      <div class="content-header escalation-header">⚠️ エスカレーション情報</div>
+      <div class="content-body">
+        <strong>エスカレーション理由:</strong><br>
+        {{escalationReason}}
+      </div>
+    </div>
+
+    <!-- フッター -->
+    <div class="footer">
+      <div class="approval-info">
+        <div>承認者: {{approverName}}</div>
+        <div>承認日: {{approvedAt}}</div>
+        <span class="status-badge status-approved">承認済み</span>
+      </div>
+      <div class="signature-box">承認印</div>
+    </div>
+  </div>
+</body>
+</html>

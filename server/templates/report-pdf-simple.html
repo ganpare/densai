@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 15mm;
+    }
+
+    body {
+      font-family: "Meiryo", "Noto Sans CJK JP", "Noto Serif CJK JP", "Noto Sans JP", "IPAGothic", "IPAMincho", "VL Gothic", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "MS Gothic", "MS Mincho", "Yu Gothic", "Yu Mincho", sans-serif;
+      font-size: 12pt;
+      margin: 0;
+    }
+
+    .container {
+      border: 0.5pt solid #000;
+      width: 180mm;  /* A4幅210mm - 左右15mm余白 */
+      padding: 5mm;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 5mm;
+      border-bottom: 0.5pt solid #000;
+      padding-bottom: 3mm;
+    }
+
+    .title {
+      font-size: 16pt;
+      font-weight: bold;
+      margin-bottom: 2mm;
+    }
+
+    .report-number {
+      font-size: 10pt;
+      color: #666;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 3mm;
+    }
+
+    th, td {
+      border: 0.3pt solid #000;
+      padding: 2mm 3mm;
+      font-size: 10pt;
+    }
+
+    th {
+      background-color: #f5f5f5;
+      font-weight: bold;
+    }
+
+    .section-title {
+      margin-top: 5mm;
+      font-weight: bold;
+      font-size: 11pt;
+      border-bottom: 0.3pt solid #000;
+      padding-bottom: 1mm;
+    }
+
+    .content-box {
+      border: 0.3pt solid #000;
+      min-height: 30mm;
+      padding: 3mm;
+      margin-bottom: 3mm;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+
+    .footer {
+      margin-top: 10mm;
+      display: flex;
+      justify-content: space-between;
+      font-size: 9pt;
+    }
+
+    .signature-box {
+      border: 0.3pt solid #000;
+      width: 40mm;
+      height: 15mm;
+      text-align: center;
+      line-height: 15mm;
+    }
+
+    .escalation-info {
+      background-color: #fff3cd;
+      border: 0.5pt solid #ffeaa7;
+      padding: 2mm;
+      margin-top: 3mm;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- ヘッダー -->
+    <div class="header">
+      <div class="title">電子債権問い合わせ対応報告書</div>
+      <div class="report-number">報告書番号: {{reportNumber}}</div>
+    </div>
+
+    <!-- 基本情報テーブル -->
+    <table>
+      <tr>
+        <th width="25%">金融機関番号</th>
+        <td width="25%">{{bankCode}}</td>
+        <th width="25%">支店番号</th>
+        <td width="25%">{{branchCode}}</td>
+      </tr>
+      <tr>
+        <th>利用者番号</th>
+        <td>{{userNumber}}</td>
+        <th>会社名</th>
+        <td>{{companyName}}</td>
+      </tr>
+      <tr>
+        <th>担当者名</th>
+        <td>{{contactPersonName}}</td>
+        <th>対応者</th>
+        <td>{{handlerName}}</td>
+      </tr>
+      <tr>
+        <th>承認者</th>
+        <td>{{approverName}}</td>
+        <th>作成日時</th>
+        <td>{{createdAt}}</td>
+      </tr>
+      <tr>
+        <th>承認日時</th>
+        <td>{{approvedAt}}</td>
+        <th>エスカレーション</th>
+        <td>{{escalationRequired}}</td>
+      </tr>
+    </table>
+
+    <!-- 問い合わせ内容 -->
+    <div class="section-title">問い合わせ内容</div>
+    <div class="content-box">{{inquiryContent}}</div>
+
+    <!-- 対応内容 -->
+    <div class="section-title">対応内容</div>
+    <div class="content-box">{{responseContent}}</div>
+
+    <!-- エスカレーション情報 -->
+    <div class="escalation-info" style="display: {{escalationRequired}} === '必要' ? 'block' : 'none';">
+      <strong>エスカレーション理由:</strong><br>
+      {{escalationReason}}
+    </div>
+
+    <!-- フッター -->
+    <div class="footer">
+      <div>
+        <div>承認者: {{approverName}}</div>
+        <div>承認日: {{approvedAt}}</div>
+      </div>
+      <div class="signature-box">承認印</div>
+    </div>
+  </div>
+</body>
+</html>

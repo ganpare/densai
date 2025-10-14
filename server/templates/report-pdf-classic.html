@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 15mm;
+    }
+
+    body {
+      font-family: "Meiryo", "Noto Sans CJK JP", "Noto Serif CJK JP", "Noto Sans JP", "IPAGothic", "IPAMincho", "VL Gothic", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "MS Gothic", "MS Mincho", "Yu Gothic", "Yu Mincho", sans-serif;
+      margin: 40px;
+      font-size: 14px;
+    }
+
+    .container {
+      border: 1px solid #000;
+      padding: 16px;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      border-bottom: 1px solid #000;
+      padding-bottom: 4px;
+      margin-bottom: 8px;
+    }
+
+    .header div {
+      font-weight: bold;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 12px;
+    }
+
+    th, td {
+      border: 1px solid #000;
+      padding: 6px 8px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background-color: #f5f5f5;
+      width: 160px;
+    }
+
+    .section-title {
+      font-weight: bold;
+      margin-top: 16px;
+      margin-bottom: 4px;
+    }
+
+    .content-box {
+      border: 1px solid #000;
+      min-height: 80px;
+      padding: 8px;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+
+    .footer {
+      margin-top: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: end;
+    }
+
+    .approval-info {
+      font-size: 12px;
+    }
+
+    .signature {
+      border: 1px solid #000;
+      width: 120px;
+      height: 40px;
+      text-align: center;
+      line-height: 40px;
+      font-size: 12px;
+    }
+
+    .escalation-notice {
+      background-color: #fff3cd;
+      border: 1px solid #ffeaa7;
+      padding: 8px;
+      margin-top: 8px;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- ヘッダー -->
+    <div class="header">
+      <div>金融機関番号　{{bankCode}}</div>
+      <div>対応日付　{{createdAt}}</div>
+    </div>
+
+    <!-- 基本情報テーブル -->
+    <table>
+      <tr>
+        <th>支店番号</th>
+        <td>{{branchCode}}</td>
+        <th>利用者番号</th>
+        <td>{{userNumber}}</td>
+        <th>名称</th>
+        <td>{{companyName}}</td>
+      </tr>
+      <tr>
+        <th>受電時刻</th>
+        <td>{{createdAt}}</td>
+        <th>対応完了時刻</th>
+        <td>{{approvedAt}}</td>
+        <th>エスカレーション</th>
+        <td>{{escalationRequired}}</td>
+      </tr>
+      <tr>
+        <th>企業対応者</th>
+        <td>{{contactPersonName}}</td>
+        <th>当社対応者</th>
+        <td>{{handlerName}}</td>
+        <th>承認者</th>
+        <td>{{approverName}}</td>
+      </tr>
+    </table>
+
+    <!-- 問い合わせ内容 -->
+    <div class="section-title">問合せ内容</div>
+    <div class="content-box">{{inquiryContent}}</div>
+
+    <!-- 対応内容 -->
+    <div class="section-title">対応内容</div>
+    <div class="content-box">{{responseContent}}</div>
+
+    <!-- エスカレーション情報 -->
+    <div class="escalation-notice" style="display: {{escalationRequired}} === '必要' ? 'block' : 'none';">
+      <strong>エスカレーション理由:</strong><br>
+      {{escalationReason}}
+    </div>
+
+    <!-- フッター -->
+    <div class="footer">
+      <div class="approval-info">
+        <div>承認者: {{approverName}}</div>
+        <div>承認日: {{approvedAt}}</div>
+        <div>報告書番号: {{reportNumber}}</div>
+      </div>
+      <div class="signature">承認印</div>
+    </div>
+  </div>
+</body>
+</html>
